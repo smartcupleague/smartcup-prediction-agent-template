@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { tmpdir } from 'node:os';
 import { AccountReadinessAdapter } from './adapters/account-readiness.js';
 import { BolaoChainClient } from './adapters/bolao-chain-client.js';
 import { buildEligibleMatchPlanForWallet } from './adapters/eligible-match-plan.js';
@@ -1311,10 +1312,10 @@ async function main(): Promise<void> {
       adminUserId: optionalArg(args, 'admin-user-id') ?? '999999',
       memoryPath:
         optionalArg(args, 'memory-path') ??
-        `/private/tmp/smartpredictor-telegram-private-smoke-${Date.now()}.json`,
+        `${tmpdir()}/smartpredictor-telegram-private-smoke-${Date.now()}.json`,
       sqlitePath:
         optionalArg(args, 'sqlite-path') ??
-        `/private/tmp/smartpredictor-telegram-private-smoke-${Date.now()}.sqlite`,
+        `${tmpdir()}/smartpredictor-telegram-private-smoke-${Date.now()}.sqlite`,
       saveTelemetry: args.save !== 'false' && args['no-save'] !== 'true',
     });
 
