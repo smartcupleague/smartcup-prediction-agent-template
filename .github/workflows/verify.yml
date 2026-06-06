@@ -1,0 +1,54 @@
+name: Verify Personal Agent Template
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Typecheck, build, smoke, and hygiene scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run check
+
+      - name: Build
+        run: npm run build
+
+      - name: Telegram private smoke harness
+        run: npm run telegram-private-smoke -- --format summary
+
+      - name: Secret and private-runtime scan
+        run: |
+          set -euo pipefail
+          if find . -path './.git' -prune -o \( -name '.env' -o -name '*.sqlite' -o -name '*.db' -o -name '*.log' \) -print | grep -q .; then
+            echo 'Runtime/private files must not be committed.'
+            find . -path './.git' -prune -o \( -name '.env' -o -name '*.sqlite' -o -name '*.db' -o -name '*.log' \) -print
+            exit 1
+          fi
+          if grep -RInE 'TELEGRAM_BOT_TOKEN=[^<[:space:]#][0-9A-Za-z_:-]{14,}|FOOTBALL_DATA_API_TOKEN=[^<[:space:]#][0-9A-Za-z_:-]{14,}|postgresql://|postgres://|sb_secret|PRIVATE_KEY=|MNEMONIC=|SEED_PHRASE=|0x3251889ab4310bd5455556f825cacc372fef6592b48c11c7b73745ccd1d0800b|kGgfy1oG3iR2xkdPbrv1pHkzBW82vb4RM6MLpHCc2aezWP6Fs' --exclude-dir=.git --exclude-dir=node_modules --exclude=package-lock.json --exclude=verify.yml --exclude=release-checklist.md .; then
+            echo 'Potential secret, private identity, or SmartPredictor-01 wallet leak found.'
+            exit 1
+          fi
+
+      - name: Paid-service residue scan
+        run: |
+          set -euo pipefail
+          if grep -RInE 'src/sales|sales quote|manual payment|customer wallet|fulfillment record|paid request|Paid Services Later|Products & Prices|Request Status' --exclude-dir=.git --exclude-dir=node_modules --exclude=package-lock.json --exclude=verify.yml --exclude=release-checklist.md .; then
+            echo 'Paid-service/customer workflow residue found in personal template.'
+            exit 1
+          fi
