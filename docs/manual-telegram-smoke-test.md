@@ -9,6 +9,25 @@ Use this checklist before moving the personal SmartCup prediction agent template
 - If testing local fallback, pause the Render worker first. If testing Render, stop local terminal polling and unload/pause launchd for the same bot token.
 - Confirm the bot responds to `/start`, `/help`, and `/menu`. Confirm the blue Telegram command popup includes personal-agent commands such as `/menu`, `/agent_status`, `/freebet`, `/claim_status`, `/risk`, `/objective`, and `/strategy`.
 
+## Pre-Install Offline Substitute
+
+If the Telegram bot is not configured yet, run this substitute before the manual test. It does not contact Telegram, but it verifies the local Telegram command/router layer, natural-language parser, permission model, menu isolation, friendly-output hygiene, prediction-alert dedupe, duplicate-approval blocking, and read-only execution blocking.
+
+```bash
+npm install
+npm run build
+node dist/cli.js telegram-bot --dry-run true
+node dist/cli.js telegram-private-smoke --format summary --no-save true
+```
+
+Expected behavior:
+
+- Dry run reports Telegram mode, token/admin configuration state, webhook settings, alert settings, and public commands without contacting Telegram.
+- Private smoke reports all cases passing and says `Contacted Telegram: false`.
+- No transaction is submitted, no Telegram message is sent, and no private key or mnemonic is requested.
+
+This substitute is acceptable before a user has created a BotFather token. It does not replace the final manual Telegram test because it cannot prove BotFather token validity, actual chat delivery, inline button rendering in a Telegram client, or Telegram file-upload behavior.
+
 ## Menu Structure
 
 Open `/menu` and confirm these top-level sections are visible:
