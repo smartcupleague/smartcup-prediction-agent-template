@@ -1,28 +1,30 @@
 # IDL Artifacts
 
-Keep copied SmartCup and future SmartPredictor Sails IDL snapshots here. Do not edit generated IDL by hand.
+These are copied Sails IDL snapshots used by the personal prediction agent for read-only chain queries and guarded transaction-plan construction. Do not edit generated IDL by hand.
 
-## BolaoCore
+## Included
 
-Snapshot:
+- `bolao_program.idl`
+  - Current default BolaoCore IDL for the World Cup MVP profile.
+  - Used for match reads, user bet reads, points, claim/refund status, `PlaceBet`, `SubmitPodiumPick`, and claim/refund planning.
+- `bolao_program.freebet-v4.idl`
+  - Future BolaoCore/freebet-aware migration snapshot.
+  - Keep for protocol-migration checks only. Do not pair it with the current MVP BolaoCore program unless the SmartCup protocol team confirms the deployed program was upgraded.
+- `freebet-ledger.idl`
+  - Optional Freebet Ledger IDL.
+  - Used only when `SMARTCUP_FREEBET_LEDGER_ID` is configured.
+- `oracle_program.idl`
+  - Optional oracle read IDL.
+  - Used for result, pending-match, feeder/consensus, and VARA/USD price reads when configured.
 
-- SmartCup League official repo: `bolao_program.idl`
+## Refresh
 
-Source:
-
-- SmartCup League official repo path: indexer/assets/bolao_program.idl
-
-Snapshot date:
-
-- 2026-05-29
-
-SHA-256:
-
-- `3e4a615fd683df7dd8b58a63dbfbb1a77b1de38db5171f217a48d1a33c96c3e2`
-
-Refresh command:
+Copy updated IDLs from the official SmartCup protocol repository, then rebuild and run the private smoke suite:
 
 ```bash
-cp <smartcup-official-repo>/indexer/assets/bolao_program.idl artifacts/idl/bolao_program.idl
-shasum -a 256 artifacts/idl/bolao_program.idl
+npm run check
+npm run build
+npm run telegram-private-smoke -- --format summary
 ```
+
+Never refresh IDLs in isolation without confirming the configured program ids point to contracts that actually use those interfaces.

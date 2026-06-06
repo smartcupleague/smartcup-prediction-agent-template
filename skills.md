@@ -183,7 +183,7 @@ The agent follows the same ground rules as the SmartCup program skill prepared b
 - Normalize wallet addresses to full `0x...` hex before querying or comparing.
 - Prefer program reads over frontend labels when state matters.
 - Discover program ids, IDL paths, RPC endpoints, and wallet command syntax from `.env` and local artifacts.
-- Use exact service names from IDLs: BolaoCore, Oracle, and DAO use `service Service`; FreebetLedger uses `service FreebetLedger`.
+- Use exact service names from IDLs: BolaoCore and Oracle use `service Service`; FreebetLedger uses `service FreebetLedger`.
 - Before any prediction write, verify match id, score, penalty winner if needed, amount, funding source, wallet, duplicate status, cutoff, and eligibility.
 - Before retrying after transport failure, re-query chain state first.
 
