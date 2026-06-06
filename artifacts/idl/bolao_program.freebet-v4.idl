@@ -1,0 +1,437 @@
+/// Scalar metadata exported from the source contract.
+/// Used by `import_metadata` to restore non-collection state.
+type MigrationMetadata = struct {
+  admins: vec actor_id,
+  operators: vec actor_id,
+  treasury: actor_id,
+  authorized_oracles: vec struct { actor_id, bool },
+  next_match_id: u64,
+  protocol_fee_accumulated: u128,
+  final_prize_accumulated: u128,
+  r32_lock_time: opt u64,
+  podium_result: opt PodiumResult,
+  podium_finalized: bool,
+  final_prize_finalized: bool,
+  final_prize_claimable_total: u128,
+  final_prize_rounding_dust: u128,
+  vara_price_usd_micro: u64,
+  price_cached_at: u64,
+  price_staleness_limit_ms: u64,
+  price_oracle_program_id: opt actor_id,
+  freebet_ledger_program_id: opt actor_id,
+  /// Informational total of all pending_refunds; NOT persisted on import.
+  pending_refunds_scalar: u128,
+};
+
+type PodiumResult = struct {
+  champion: str,
+  runner_up: str,
+  third_place: str,
+};
+
+/// One page of state data returned by `export_state_page`.
+/// `matches` and `phases` are only populated on page 0 (they are small bounded sets).
+/// `bets` and `user_payloads` are paginated by `page_size` per collection.
+type MigrationPage = struct {
+  page: u32,
+  total_pages: u32,
+  is_last_page: bool,
+  matches: vec Match,
+  phases: vec PhaseConfig,
+  bets: vec Bet,
+  user_payloads: vec MigrationUserPayload,
+};
+
+type Match = struct {
+  match_id: u64,
+  phase: str,
+  home: str,
+  away: str,
+  kick_off: u64,
+  result: ResultStatus,
+  match_prize_pool: u128,
+  has_bets: bool,
+  participants: vec actor_id,
+  total_winner_stake: u128,
+  total_claimed: u128,
+  settlement_prepared: bool,
+  dust_swept: bool,
+  finalized_at: opt u64,
+};
+
+type ResultStatus = enum {
+  Unresolved,
+  Proposed: struct {
+    score: Score,
+    penalty_winner: opt PenaltyWinner,
+    oracle: actor_id,
+    proposed_at: u64,
+  },
+  Finalized: struct {
+    score: Score,
+    penalty_winner: opt PenaltyWinner,
+  },
+  Cancelled,
+};
+
+type Score = struct {
+  home: u8,
+  away: u8,
+};
+
+type PenaltyWinner = enum {
+  Home,
+  Away,
+};
+
+type PhaseConfig = struct {
+  name: str,
+  start_time: u64,
+  end_time: u64,
+  points_weight: u32,
+};
+
+type Bet = struct {
+  user: actor_id,
+  match_id: u64,
+  score: Score,
+  penalty_winner: opt PenaltyWinner,
+  stake_in_match_pool: u128,
+  freebet_principal: u128,
+  claimed: bool,
+};
+
+/// Per-user payload bundling all user-keyed map entries for migration.
+type MigrationUserPayload = struct {
+  user: actor_id,
+  user_bets: vec UserBetRecord,
+  user_points: u32,
+  pending_refund: u128,
+  podium_pick: opt PodiumPick,
+  final_prize_allocation: u128,
+  final_prize_claimed: bool,
+};
+
+type UserBetRecord = struct {
+  match_id: u64,
+  score: Score,
+  penalty_winner: opt PenaltyWinner,
+  stake_in_match_pool: u128,
+  freebet_principal: u128,
+};
+
+type PodiumPick = struct {
+  champion: str,
+  runner_up: str,
+  third_place: str,
+};
+
+type UserBetView = struct {
+  match_id: u64,
+  score: Score,
+  penalty_winner: opt PenaltyWinner,
+  stake_in_match_pool: u128,
+  freebet_principal: u128,
+  claimed: bool,
+};
+
+type FinalPrizeClaimStatus = struct {
+  wallet: actor_id,
+  final_prize_finalized: bool,
+  eligible: bool,
+  amount_claimable: u128,
+  already_claimed: bool,
+  points: u32,
+};
+
+type IoSmartCupState = struct {
+  admins: vec actor_id,
+  operators: vec actor_id,
+  treasury: actor_id,
+  protocol_fee_accumulated: u128,
+  final_prize_accumulated: u128,
+  matches: vec Match,
+  phases: vec PhaseConfig,
+  user_points: vec struct { actor_id, u32 },
+  podium_finalized: bool,
+  r32_lock_time: opt u64,
+  final_prize_finalized: bool,
+  final_prize_claimable_total: u128,
+  final_prize_rounding_dust: u128,
+  vara_price_usd_micro: u64,
+  price_cached_at: u64,
+  price_staleness_limit_ms: u64,
+  freebet_ledger_program_id: opt actor_id,
+};
+
+type WalletClaimStatus = struct {
+  wallet: actor_id,
+  amount_claimable: u128,
+  already_claimed: bool,
+};
+
+constructor {
+  New : (admin: actor_id, treasury: actor_id);
+  /// Deploy in importer mode: migration_sealed=false.
+  /// All user-facing writes are blocked until seal_migration() is called.
+  NewAsImporter : (admin: actor_id, treasury: actor_id);
+};
+
+service Service {
+  /// Adds a new admin to the admins list. Any existing admin can call this.
+  AddAdmin : (new_admin: actor_id) -> null;
+  /// Adds an operator. Only admins can call this.
+  /// Operators can call register_phase and register_match.
+  AddOperator : (new_operator: actor_id) -> null;
+  /// T21 — Admin push refund: sends a user's pending refund on their behalf.
+  /// Does NOT call check_writes_allowed() — valid even during migration lock
+  /// so admins can drain refunds before drain_vara_to (REQ-11.5).
+  /// Follows CEI: clears bookkeeping before send; restores on failure.
+  AdminPushRefund : (user: actor_id) -> null;
+  /// Marks a match as Cancelled and accumulates per-bettor refunds in
+  /// pending_refunds. Use when a match cannot or will not produce a real
+  /// result (suspension, abandonment, FIFA voiding, registration error).
+  /// Cash bettors then call claim_refund() to pull their stake out. Freebet
+  /// principal is returned to FreebetLedger immediately during cancellation
+  /// because no finalized match payout exists.
+  ///
+  /// Cash refund amount per bettor = stake_in_match_pool (the 85% post-fee
+  /// share). Freebet refund amount = stake_in_match_pool, because freebet
+  /// entries do not pay protocol/final-prize fees. Once a match is finalized,
+  /// winning freebet claims return the principal to FreebetLedger and send
+  /// only net winnings to the user's wallet.
+  ///
+  /// Cancelling a match is terminal — no transition out of Cancelled.
+  /// Cannot cancel a match already Finalized (claims may have happened).
+  CancelMatch : (match_id: u64) -> null;
+  CancelProposedResult : (match_id: u64) -> null;
+  ClaimFinalPrize : () -> null;
+  ClaimMatchReward : (match_id: u64) -> null;
+  ClaimRefund : () -> null;
+  /// T17 — Drains the entire program balance to `dest`.
+  /// Requires migration_locked == true and admin caller.
+  DrainVaraTo : (dest: actor_id) -> null;
+  FinalizeFinalPrizePool : () -> null;
+  FinalizePodium : (champion: str, runner_up: str, third_place: str) -> null;
+  FinalizeResult : (match_id: u64) -> null;
+  ForceWithdrawVara : (to: actor_id, amount: u128) -> null;
+  /// T19 — Imports scalar metadata.
+  /// Requires migration_sealed == false and admin caller.
+  /// Does NOT emit an event (REQ-8.5).
+  ImportMetadata : (meta: MigrationMetadata) -> null;
+  /// T18 — Imports one page of state into this contract.
+  /// Requires migration_sealed == false (importer mode) and admin caller.
+  /// All inserts are idempotent (existing entries at the same key are overwritten).
+  ImportStatePage : (page: MigrationPage) -> null;
+  /// T13 — Locks the contract for migration (SOURCE role).
+  /// Snapshots all collection keys into sorted Vecs; blocks all user writes.
+  /// Idempotent: calling again when already locked is a no-op.
+  LockForMigration : () -> null;
+  PlaceBet : (match_id: u64, predicted_score: Score, predicted_penalty_winner: opt PenaltyWinner) -> null;
+  PlaceBetFromFreebetLedger : (user: actor_id, match_id: u64, predicted_score: Score, predicted_penalty_winner: opt PenaltyWinner) -> u128;
+  ProposeFromOracle : (match_id: u64, oracle_program_id: actor_id) -> null;
+  ProposeResult : (match_id: u64, final_score: Score, penalty_winner: opt PenaltyWinner) -> null;
+  /// Queries the Oracle-Program for the current VARA/USD price and caches it.
+  /// Must be called by an admin or operator. oracle_program_id must match an
+  /// authorized oracle or the stored price_oracle_program_id.
+  RefreshVaraPrice : (oracle_program_id: actor_id) -> null;
+  RegisterMatch : (phase: str, home: str, away: str, kick_off: u64) -> null;
+  RegisterPhase : (phase_name: str, start_time: u64, end_time: u64, points_weight: u32) -> null;
+  /// Removes an admin from the admins list. Any existing admin can call this.
+  /// Panics if trying to remove the last admin.
+  RemoveAdmin : (admin_to_remove: actor_id) -> null;
+  /// Removes an operator. Only admins can call this.
+  RemoveOperator : (operator_to_remove: actor_id) -> null;
+  /// T20 — Seals the contract after import is complete.
+  /// Flips migration_sealed to true, re-enables all writes, clears index Vecs.
+  SealMigration : () -> null;
+  SetFreebetLedger : (ledger_program_id: opt actor_id) -> null;
+  SetOracleAuthorized : (oracle: actor_id, authorized: bool) -> null;
+  SetPriceOracle : (oracle_program_id: actor_id) -> null;
+  SetPriceStalenessLimit : (staleness_limit_ms: u64) -> null;
+  /// Updates the treasury address. Only admins can call this.
+  /// The treasury receives protocol fees and rounding dust.
+  SetTreasury : (new_treasury: actor_id) -> null;
+  SubmitPodiumPick : (champion: str, runner_up: str, third_place: str) -> null;
+  SweepMatchDustToFinalPrize : (match_id: u64) -> null;
+  WithdrawFinalPrizeRoundingDust : () -> null;
+  WithdrawProtocolFees : () -> null;
+  WithdrawSurplusVara : (to: actor_id, amount: u128) -> null;
+  query ContractVersion4 : () -> u32;
+  /// T16 — Returns all scalar metadata from state.
+  /// Requires migration_locked == true. Does NOT emit an event (query-style).
+  query ExportMetadata : () -> MigrationMetadata;
+  /// T15 — Returns a deterministic page of state.
+  /// Requires migration_locked == true. page_size is silently capped to MAX_MIGRATION_PAGE_SIZE.
+  query ExportStatePage : (page: u32, page_size: u32) -> MigrationPage;
+  query QueryBetsByUser : (user: actor_id) -> vec UserBetView;
+  query QueryFinalPrizeClaimStatus : (wallet: actor_id) -> FinalPrizeClaimStatus;
+  /// Returns the total VARA (planck) the contract holds on behalf of users.
+  /// Useful for off-chain tooling to compute the correct amount before drain_vara_to.
+  query QueryLockedVara : () -> u128;
+  query QueryMatch : (match_id: u64) -> opt Match;
+  query QueryMatchesByPhase : (phase: str) -> vec Match;
+  query QueryPendingRefund : (user: actor_id) -> u128;
+  query QueryState : () -> IoSmartCupState;
+  query QueryUserPoints : (user: actor_id) -> u32;
+  query QueryWalletClaimStatus : (wallet: actor_id) -> WalletClaimStatus;
+
+  events {
+    PhaseRegistered: str;
+    MatchRegistered: struct {
+      u64,
+      str,
+      str,
+      str,
+      u64,
+    };
+    OracleAuthorized: struct {
+      actor_id,
+      bool,
+    };
+    BetAccepted: struct {
+      actor_id,
+      u64,
+      Score,
+      opt PenaltyWinner,
+      u128,
+    };
+    ResultProposed: struct {
+      u64,
+      Score,
+      opt PenaltyWinner,
+      actor_id,
+      u64,
+    };
+    ResultFinalized: struct {
+      u64,
+      Score,
+      opt PenaltyWinner,
+    };
+    SettlementPrepared: struct {
+      u64,
+      u128,
+    };
+    PointsAwarded: struct {
+      actor_id,
+      u64,
+      u32,
+    };
+    MatchRewardClaimed: struct {
+      u64,
+      actor_id,
+      u128,
+    };
+    MatchDustSwept: struct {
+      u64,
+      u128,
+    };
+    PodiumPickSubmitted: struct {
+      actor_id,
+      str,
+      str,
+      str,
+    };
+    PodiumFinalized: struct {
+      str,
+      str,
+      str,
+    };
+    PodiumBonusAwarded: struct {
+      actor_id,
+      u32,
+    };
+    FinalPrizeSent: struct {
+      u128,
+      actor_id,
+    };
+    ProtocolFeesWithdrawn: struct {
+      u128,
+      actor_id,
+    };
+    AdminAdded: actor_id;
+    AdminRemoved: actor_id;
+    OperatorAdded: actor_id;
+    OperatorRemoved: actor_id;
+    TreasuryChanged: struct {
+      actor_id,
+      actor_id,
+    };
+    FinalPrizePoolFinalized: struct {
+      u128,
+      u128,
+    };
+    FinalPrizeClaimed: struct {
+      actor_id,
+      u128,
+    };
+    FinalPrizeRoundingDustWithdrawn: struct {
+      u128,
+      actor_id,
+    };
+    SurplusVaraWithdrawn: struct {
+      u128,
+      actor_id,
+    };
+    /// Admin emergency withdrawal that may bypass locked pools/liabilities: (amount, to).
+    ForceVaraWithdrawn: struct {
+      u128,
+      actor_id,
+    };
+    ResultProposalCancelled: struct {
+      u64,
+      actor_id,
+    };
+    MatchCancelled: struct {
+      u64,
+      u128,
+    };
+    RefundClaimed: struct {
+      actor_id,
+      u128,
+    };
+    FreebetLedgerSet: opt actor_id;
+    FreebetBetAccepted: struct {
+      actor_id,
+      u64,
+      Score,
+      opt PenaltyWinner,
+      u128,
+    };
+    FreebetPrincipalReturned: struct {
+      actor_id,
+      u64,
+      u128,
+    };
+    /// VARA/USD price refreshed from Oracle-Program: (price_usd_micro).
+    VaraPriceRefreshed: u64;
+    /// Emitted by lock_for_migration() when the contract is locked for export.
+    MigrationLocked;
+    /// Emitted by export_state_page(): (page, entries_in_page).
+    MigrationPageExported: struct {
+      u32,
+      u32,
+    };
+    /// Emitted by export_metadata().
+    MigrationMetadataExported;
+    /// Emitted by drain_vara_to(): (dest, amount).
+    MigrationVaraDrained: struct {
+      actor_id,
+      u128,
+    };
+    /// Emitted by import_state_page(): (page, entries_imported).
+    MigrationPageImported: struct {
+      u32,
+      u32,
+    };
+    /// Emitted by import_metadata().
+    MigrationMetadataImported;
+    /// Emitted by seal_migration().
+    MigrationSealed;
+    /// Emitted by admin_push_refund(): (user, amount).
+    RefundPushed: struct {
+      actor_id,
+      u128,
+    };
+  }
+};

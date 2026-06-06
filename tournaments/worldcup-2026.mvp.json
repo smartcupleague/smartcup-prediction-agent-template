@@ -1,0 +1,201 @@
+{
+  "schemaVersion": "smartpredictor.tournament-profile.v1",
+  "tournamentId": "worldcup-2026-mvp",
+  "slug": "worldcup-2026.mvp",
+  "name": "SmartCup League World Cup 2026 MVP",
+  "season": "2026",
+  "timezone": "UTC",
+  "matchCount": 104,
+  "defaultRiskMode": "balanced",
+  "programs": {
+    "bolaoCore": "0x52f5f89954bbf1528f84eb1ca90100b47a6a50b0fe76e6ce31ed3ff55497ed98",
+    "oracle": "0xff7795305eaa4abe36cae9aa6b11373327eda01218c787cb391b7c38bc3fcfbb",
+    "freebetLedger": null
+  },
+  "providers": {
+    "fixtures": "football-data.org",
+    "odds": [],
+    "news": [],
+    "injuries": []
+  },
+  "cutoff": {
+    "predictionCutoffMinutes": 10,
+    "safetyBufferMs": 900000
+  },
+  "entry": {
+    "minimumEntryUsd": 3,
+    "minimumEntrySource": "dynamic_usd_to_vara"
+  },
+  "scoring": {
+    "exactScorePoints": 3,
+    "correctOutcomePoints": 1,
+    "incorrectPoints": 0,
+    "phaseWeightsApply": true
+  },
+  "claims": {
+    "matchRewardClaimWindowHours": 48
+  },
+  "rewardSplit": {
+    "matchWinnerPoolBps": 8500,
+    "finalPrizePoolBps": 1000,
+    "protocolFeeBps": 500
+  },
+  "finalPrize": {
+    "placesPaid": 5,
+    "distribution": [
+      {
+        "place": 1,
+        "bps": 4500
+      },
+      {
+        "place": 2,
+        "bps": 2500
+      },
+      {
+        "place": 3,
+        "bps": 1500
+      },
+      {
+        "place": 4,
+        "bps": 1000
+      },
+      {
+        "place": 5,
+        "bps": 500
+      }
+    ],
+    "tieBreak": "combine_and_split_tied_positions"
+  },
+  "phases": [
+    {
+      "key": "group",
+      "name": "Group Stage",
+      "smartcupPhaseNames": ["Group Stage"],
+      "pointsWeight": 1,
+      "weightSource": "published_rules",
+      "description": "SmartCup rules page phase multiplier: x1. Live BolaoCore QueryState also reported Group Stage weight 1 on 2026-05-29.",
+      "startsAt": "2026-06-11T00:00:00.000Z",
+      "endsAt": "2026-07-03T00:00:00.000Z",
+      "matchIdRange": {
+        "first": "1",
+        "last": "72"
+      }
+    },
+    {
+      "key": "round_of_32",
+      "name": "Round of 32",
+      "smartcupPhaseNames": ["Round of 32", "R32"],
+      "pointsWeight": 2,
+      "weightSource": "published_rules",
+      "description": "SmartCup rules page phase multiplier: x2. Verify against BolaoCore once phase is registered.",
+      "startsAt": null,
+      "endsAt": null,
+      "matchIdRange": {
+        "first": "73",
+        "last": "88"
+      }
+    },
+    {
+      "key": "round_of_16",
+      "name": "Round of 16",
+      "smartcupPhaseNames": ["Round of 16", "R16"],
+      "pointsWeight": 3,
+      "weightSource": "published_rules",
+      "description": "SmartCup rules page phase multiplier: x3. Verify against BolaoCore once phase is registered.",
+      "startsAt": null,
+      "endsAt": null,
+      "matchIdRange": {
+        "first": "89",
+        "last": "96"
+      }
+    },
+    {
+      "key": "quarter_final",
+      "name": "Quarter-finals",
+      "smartcupPhaseNames": ["Quarter-finals", "Quarterfinals", "Quarter Finals"],
+      "pointsWeight": 4,
+      "weightSource": "published_rules",
+      "description": "SmartCup rules page phase multiplier: x4. Verify against BolaoCore once phase is registered.",
+      "startsAt": null,
+      "endsAt": null,
+      "matchIdRange": {
+        "first": "97",
+        "last": "100"
+      }
+    },
+    {
+      "key": "semi_final",
+      "name": "Semi-finals",
+      "smartcupPhaseNames": ["Semi-finals", "Semifinals", "Semi Finals"],
+      "pointsWeight": 5,
+      "weightSource": "published_rules",
+      "description": "SmartCup rules page phase multiplier: x5. Verify against BolaoCore once phase is registered.",
+      "startsAt": null,
+      "endsAt": null,
+      "matchIdRange": {
+        "first": "101",
+        "last": "102"
+      }
+    },
+    {
+      "key": "third_place",
+      "name": "Third-place match",
+      "smartcupPhaseNames": ["Third-place match", "Third Place", "Bronze Final"],
+      "pointsWeight": 6,
+      "weightSource": "published_rules",
+      "description": "SmartCup rules page phase multiplier: x6. Verify against BolaoCore once phase is registered.",
+      "startsAt": null,
+      "endsAt": null,
+      "matchIdRange": {
+        "first": "103",
+        "last": "103"
+      }
+    },
+    {
+      "key": "final",
+      "name": "Final",
+      "smartcupPhaseNames": ["Final"],
+      "pointsWeight": 8,
+      "weightSource": "published_rules",
+      "description": "SmartCup rules page phase multiplier: x8. Verify against BolaoCore once phase is registered.",
+      "startsAt": null,
+      "endsAt": null,
+      "matchIdRange": {
+        "first": "104",
+        "last": "104"
+      }
+    }
+  ],
+  "podiumPick": {
+    "enabled": true,
+    "phaseKey": "round_of_32",
+    "targetMatchId": null,
+    "targetMatchLabel": "First registered Round of 32 match",
+    "expectedMatchupDefinedAt": "2026-06-25T03:00:00.000Z",
+    "kickoffAt": "2026-06-28T19:00:00.000Z",
+    "lockSource": "published_rules",
+    "opportunityWindowHours": {
+      "min": 88,
+      "max": 90
+    },
+    "bonusPoints": {
+      "championPoints": 20,
+      "runnerUpPoints": 10,
+      "thirdPlacePoints": 5,
+      "exactPositionOnly": true
+    }
+  },
+  "notes": [
+    "FIFA lists the 2026 World Cup as a 104-match tournament.",
+    "Rules page source: https://www.smartcupleague.com/rules, verified from the published frontend bundle on 2026-05-29.",
+    "Minimum prediction and Championship Pick entry is the dynamic $3 USD equivalent converted to VARA.",
+    "Predictions close 10 minutes before kickoff; the agent adds its own 15-minute safety buffer.",
+    "Phase weights follow the SmartCup rules page at https://www.smartcupleague.com/rules: Group Stage x1, Round of 32 x2, Round of 16 x3, Quarter-Finals x4, Semi-Finals x5, Third Place Match x6, Final x8.",
+    "Scoring follows the rules page: exact score 3 points, correct outcome 1 point, incorrect 0 points, multiplied by phase weight.",
+    "Final Prize Pool distribution follows the rules page: 1st 45%, 2nd 25%, 3rd 15%, 4th 10%, 5th 5%; tied positions combine and split.",
+    "Championship Pick bonus points follow the rules page: Champion 20, Runner-Up 10, Third Place 5, exact position only.",
+    "Only Group Stage was registered in live BolaoCore QueryState on 2026-05-29; later knockout phase weights should be checked against on-chain phases once they are registered.",
+    "The agent should reconcile this profile with live BolaoCore QueryState on every planning run, because phases and r32_lock_time may be registered during the tournament.",
+    "The active SmartCup MVP entry distribution is 85% match winner pool, 10% final prize pool, and 5% DAO/protocol fee."
+  ]
+}

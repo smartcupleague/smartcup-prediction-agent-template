@@ -1,0 +1,241 @@
+type Score = struct {
+  home: u8,
+  away: u8,
+};
+
+type PenaltyWinner = enum {
+  Home,
+  Away,
+};
+
+type UserBetView = struct {
+  match_id: u64,
+  score: Score,
+  penalty_winner: opt PenaltyWinner,
+  stake_in_match_pool: u128,
+  claimed: bool,
+};
+
+type FinalPrizeClaimStatus = struct {
+  wallet: actor_id,
+  final_prize_finalized: bool,
+  eligible: bool,
+  amount_claimable: u128,
+  already_claimed: bool,
+  points: u32,
+};
+
+type Match = struct {
+  match_id: u64,
+  phase: str,
+  home: str,
+  away: str,
+  kick_off: u64,
+  result: ResultStatus,
+  match_prize_pool: u128,
+  has_bets: bool,
+  participants: vec actor_id,
+  total_winner_stake: u128,
+  total_claimed: u128,
+  settlement_prepared: bool,
+  dust_swept: bool,
+  finalized_at: opt u64,
+};
+
+type ResultStatus = enum {
+  Unresolved,
+  Proposed: struct {
+    score: Score,
+    penalty_winner: opt PenaltyWinner,
+    oracle: actor_id,
+    proposed_at: u64,
+  },
+  Finalized: struct {
+    score: Score,
+    penalty_winner: opt PenaltyWinner,
+  },
+  Cancelled,
+};
+
+type IoSmartCupState = struct {
+  admins: vec actor_id,
+  operators: vec actor_id,
+  treasury: actor_id,
+  protocol_fee_accumulated: u128,
+  final_prize_accumulated: u128,
+  matches: vec Match,
+  phases: vec PhaseConfig,
+  user_points: vec struct { actor_id, u32 },
+  podium_finalized: bool,
+  r32_lock_time: opt u64,
+  final_prize_finalized: bool,
+  final_prize_claimable_total: u128,
+  final_prize_rounding_dust: u128,
+};
+
+type PhaseConfig = struct {
+  name: str,
+  start_time: u64,
+  end_time: u64,
+  points_weight: u32,
+};
+
+type WalletClaimStatus = struct {
+  wallet: actor_id,
+  amount_claimable: u128,
+  already_claimed: bool,
+};
+
+constructor {
+  New : (admin: actor_id, treasury: actor_id);
+};
+
+service Service {
+  /// Adds a new admin to the admins list. Any existing admin can call this.
+  AddAdmin : (new_admin: actor_id) -> null;
+  /// Adds an operator. Only admins can call this.
+  /// Operators can call register_phase and register_match.
+  AddOperator : (new_operator: actor_id) -> null;
+  CancelMatch : (match_id: u64) -> null;
+  CancelProposedResult : (match_id: u64) -> null;
+  ClaimFinalPrize : () -> null;
+  ClaimMatchReward : (match_id: u64) -> null;
+  ClaimRefund : () -> null;
+  FinalizeFinalPrizePool : () -> null;
+  FinalizePodium : (champion: str, runner_up: str, third_place: str) -> null;
+  FinalizeResult : (match_id: u64) -> null;
+  PlaceBet : (match_id: u64, predicted_score: Score, predicted_penalty_winner: opt PenaltyWinner) -> null;
+  ProposeFromOracle : (match_id: u64, oracle_program_id: actor_id) -> null;
+  ProposeResult : (match_id: u64, final_score: Score, penalty_winner: opt PenaltyWinner) -> null;
+  RegisterMatch : (phase: str, home: str, away: str, kick_off: u64) -> null;
+  RegisterPhase : (phase_name: str, start_time: u64, end_time: u64, points_weight: u32) -> null;
+  /// Removes an admin from the admins list. Any existing admin can call this.
+  /// Panics if trying to remove the last admin.
+  RemoveAdmin : (admin_to_remove: actor_id) -> null;
+  /// Removes an operator. Only admins can call this.
+  RemoveOperator : (operator_to_remove: actor_id) -> null;
+  SetOracleAuthorized : (oracle: actor_id, authorized: bool) -> null;
+  /// Updates the treasury address. Only admins can call this.
+  /// The treasury receives protocol fees and rounding dust.
+  SetTreasury : (new_treasury: actor_id) -> null;
+  SubmitPodiumPick : (champion: str, runner_up: str, third_place: str) -> null;
+  SweepMatchDustToFinalPrize : (match_id: u64) -> null;
+  WithdrawFinalPrizeRoundingDust : () -> null;
+  WithdrawProtocolFees : () -> null;
+  query QueryBetsByUser : (user: actor_id) -> vec UserBetView;
+  query QueryFinalPrizeClaimStatus : (wallet: actor_id) -> FinalPrizeClaimStatus;
+  query QueryMatch : (match_id: u64) -> opt Match;
+  query QueryMatchesByPhase : (phase: str) -> vec Match;
+  query QueryPendingRefund : (user: actor_id) -> u128;
+  query QueryState : () -> IoSmartCupState;
+  query QueryUserPoints : (user: actor_id) -> u32;
+  query QueryWalletClaimStatus : (wallet: actor_id) -> WalletClaimStatus;
+
+  events {
+    PhaseRegistered: str;
+    MatchRegistered: struct {
+      u64,
+      str,
+      str,
+      str,
+      u64,
+    };
+    OracleAuthorized: struct {
+      actor_id,
+      bool,
+    };
+    BetAccepted: struct {
+      actor_id,
+      u64,
+      Score,
+      opt PenaltyWinner,
+      u128,
+    };
+    ResultProposed: struct {
+      u64,
+      Score,
+      opt PenaltyWinner,
+      actor_id,
+      u64,
+    };
+    ResultFinalized: struct {
+      u64,
+      Score,
+      opt PenaltyWinner,
+    };
+    SettlementPrepared: struct {
+      u64,
+      u128,
+    };
+    PointsAwarded: struct {
+      actor_id,
+      u64,
+      u32,
+    };
+    MatchRewardClaimed: struct {
+      u64,
+      actor_id,
+      u128,
+    };
+    MatchDustSwept: struct {
+      u64,
+      u128,
+    };
+    PodiumPickSubmitted: struct {
+      actor_id,
+      str,
+      str,
+      str,
+    };
+    PodiumFinalized: struct {
+      str,
+      str,
+      str,
+    };
+    PodiumBonusAwarded: struct {
+      actor_id,
+      u32,
+    };
+    FinalPrizeSent: struct {
+      u128,
+      actor_id,
+    };
+    ProtocolFeesWithdrawn: struct {
+      u128,
+      actor_id,
+    };
+    AdminAdded: actor_id;
+    AdminRemoved: actor_id;
+    OperatorAdded: actor_id;
+    OperatorRemoved: actor_id;
+    TreasuryChanged: struct {
+      actor_id,
+      actor_id,
+    };
+    FinalPrizePoolFinalized: struct {
+      u128,
+      u128,
+    };
+    FinalPrizeClaimed: struct {
+      actor_id,
+      u128,
+    };
+    FinalPrizeRoundingDustWithdrawn: struct {
+      u128,
+      actor_id,
+    };
+    ResultProposalCancelled: struct {
+      u64,
+      actor_id,
+    };
+    MatchCancelled: struct {
+      u64,
+      u128,
+    };
+    RefundClaimed: struct {
+      actor_id,
+      u128,
+    };
+  }
+};
+

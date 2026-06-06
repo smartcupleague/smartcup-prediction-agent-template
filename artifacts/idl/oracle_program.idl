@@ -1,0 +1,181 @@
+/// Penalty shootout winner for knockout draws.
+type PenaltyWinner = enum {
+  Home,
+  Away,
+};
+
+/// Flat view of an oracle result — exposed in `IoOracleState`.
+type IoMatchResult = struct {
+  match_id: u64,
+  phase: str,
+  home: str,
+  away: str,
+  kick_off: u64,
+  status: OracleResultStatus,
+  final_result: opt FinalResult,
+  submissions: u32,
+};
+
+/// Lifecycle of an oracle match entry.
+type OracleResultStatus = enum {
+  /// Submissions received but consensus not yet reached.
+  Pending,
+  /// Consensus threshold met — result locked.
+  Finalized,
+};
+
+/// The verified, locked result for a match.
+type FinalResult = struct {
+  score: Score,
+  penalty_winner: opt PenaltyWinner,
+  finalized_at: u64,
+};
+
+/// Final score of a match.
+type Score = struct {
+  home: u8,
+  away: u8,
+};
+
+/// Full read-only projection returned by `query_state()`.
+type IoOracleState = struct {
+  admin: actor_id,
+  admins: vec actor_id,
+  operators: vec actor_id,
+  consensus_threshold: u8,
+  bolao_program_id: opt actor_id,
+  authorized_feeders: vec actor_id,
+  match_results: vec IoMatchResult,
+  pending_admin: opt actor_id,
+  vara_price_usd_micro: u64,
+  price_updated_at: u64,
+};
+
+constructor {
+  New : (admin: actor_id);
+};
+
+service Service {
+  /// Step 2: new admin accepts. Caller must be the pending admin.
+  AcceptAdmin : () -> null;
+  AddAdmin : (new_admin: actor_id) -> null;
+  /// Adds an operator. Only admin can call this.
+  /// Operators can call register_match and force_finalize_result.
+  AddOperator : (new_operator: actor_id) -> null;
+  /// Admin cancels a disputed result, clearing all submissions and resetting the
+  /// match to Pending so feeders can submit fresh results.
+  /// Cannot cancel an already-finalized result (Fix #1).
+  CancelResult : (match_id: u64) -> null;
+  /// Admin or operator force-finalizes a result, bypassing the consensus requirement.
+  /// Creates the oracle entry if it does not exist yet.
+  ForceFinalizeResult : (match_id: u64, home: u8, away: u8, penalty_winner: opt PenaltyWinner) -> null;
+  ForceWithdrawVara : (to: actor_id, amount: u128) -> null;
+  /// Step 1: propose a new admin. Cannot be the zero address (Fix #3).
+  ProposeAdmin : (new_admin: actor_id) -> null;
+  /// Admin or operator pre-registers a match_id before feeders can submit results.
+  /// Mirrors the BolaoCore registration info (phase, home, away, kick_off) so the
+  /// Oracle holds the same metadata as the betting contract.
+  RegisterMatch : (match_id: u64, phase: str, home: str, away: str, kick_off: u64) -> null;
+  RemoveAdmin : (admin: actor_id) -> null;
+  /// Removes an operator. Only admin can call this.
+  RemoveOperator : (operator: actor_id) -> null;
+  /// Register the BolaoCore program address (informational — used by off-chain tooling).
+  SetBolaoProgram : (program_id: actor_id) -> null;
+  /// Update the number of agreeing feeders needed to auto-finalize a result.
+  /// Must be >= 1 and <= MAX_FEEDERS; values above MAX_FEEDERS make organic
+  /// consensus unreachable.
+  SetConsensusThreshold : (threshold: u8) -> null;
+  /// Authorize or revoke a data feeder.
+  /// Revoking a feeder excludes their past submissions from future consensus checks.
+  SetFeederAuthorized : (feeder: actor_id, authorized: bool) -> null;
+  /// Authorized feeder pushes the current VARA/USD price on-chain.
+  /// Range: [1, 100_000_000] micro-USD (= $0.000001 to $100 per VARA).
+  SetVaraUsdPrice : (price_usd_micro: u64) -> null;
+  /// Authorized feeder submits a match result.
+  ///
+  /// - The match must be pre-registered by admin (Fix #8 — no phantom entries).
+  /// - One submission per feeder per match.
+  /// - Consensus only counts votes from currently authorized feeders (Fix #4).
+  /// - Exactly ONE event is emitted, after the state transition is complete.
+  /// - The entry borrow is released in an explicit inner scope before the
+  ///   consensus re-read, preventing NLL ambiguity (Fix #6).
+  SubmitResult : (match_id: u64, home: u8, away: u8, penalty_winner: opt PenaltyWinner) -> null;
+  WithdrawVara : (to: actor_id, amount: u128) -> null;
+  query ContractVersion4 : () -> u32;
+  /// Returns a flat view of all oracle entries.
+  query QueryAllResults : () -> vec IoMatchResult;
+  /// Returns the matches on which a specific feeder has submitted a result.
+  query QueryFeederSubmissions : (feeder: actor_id) -> vec struct { u64, Score, opt PenaltyWinner };
+  /// Returns the finalized result for a given match, or None if not yet finalized.
+  query QueryMatchResult : (match_id: u64) -> opt FinalResult;
+  /// Returns all match_ids that are still in Pending status.
+  query QueryPendingMatches : () -> vec u64;
+  /// Full program state — admin, feeders, threshold, all match records.
+  query QueryState : () -> IoOracleState;
+  /// Returns (price_usd_micro, price_updated_at). Both are 0 if never set.
+  query QueryVaraUsdPrice : () -> struct { u64, u64 };
+
+  events {
+    /// Admin registered a match_id for feeder submissions: (match_id).
+    MatchRegistered: u64;
+    /// A feeder was authorized or revoked: (feeder, authorized).
+    FeederSet: struct {
+      actor_id,
+      bool,
+    };
+    /// Consensus threshold was updated: (new_threshold).
+    ConsensusThresholdSet: u8;
+    /// BolaoCore program address was registered.
+    BolaoProgram: actor_id;
+    /// A feeder submitted a result: (match_id, feeder, score).
+    ResultSubmitted: struct {
+      u64,
+      actor_id,
+      Score,
+    };
+    /// Consensus reached and result auto-finalized: (match_id, score, penalty_winner).
+    ConsensusReached: struct {
+      u64,
+      Score,
+      opt PenaltyWinner,
+    };
+    /// Admin force-finalized a result: (match_id, score, penalty_winner).
+    ResultForced: struct {
+      u64,
+      Score,
+      opt PenaltyWinner,
+    };
+    /// Admin cancelled a disputed result and reset it to Pending: (match_id).
+    ResultCancelled: u64;
+    /// 2-step admin transfer — new admin proposed: (old, proposed).
+    AdminProposed: struct {
+      actor_id,
+      actor_id,
+    };
+    /// New admin accepted ownership: (old, new).
+    AdminChanged: struct {
+      actor_id,
+      actor_id,
+    };
+    /// An additional admin was added: (admin).
+    AdminAdded: actor_id;
+    /// An admin was removed: (admin).
+    AdminRemoved: actor_id;
+    /// An operator was added by admin: (operator).
+    OperatorAdded: actor_id;
+    /// An operator was removed by admin: (operator).
+    OperatorRemoved: actor_id;
+    /// VARA/USD price updated by an authorized feeder: (price_usd_micro).
+    VaraPriceSet: u64;
+    /// Admin withdrew VARA accidentally held by this oracle: (to, amount).
+    VaraWithdrawn: struct {
+      actor_id,
+      u128,
+    };
+    /// Admin emergency withdrawal of any VARA held by this oracle: (to, amount).
+    ForceVaraWithdrawn: struct {
+      actor_id,
+      u128,
+    };
+  }
+};

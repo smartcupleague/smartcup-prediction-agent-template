@@ -1,0 +1,71 @@
+import type { AgentConfig } from '../types/index.js';
+
+export const DEFAULT_CONFIG: AgentConfig = {
+  agent: {
+    handle: 'your_agent_handle',
+    name: 'Your SmartCup Agent',
+  },
+  wallet: {
+    accountName: 'your-vara-wallet-account',
+    hexAddress: '0xREPLACE_WITH_PUBLIC_WALLET',
+    ss58Address: 'ss58_replace_with_public_wallet',
+  },
+  network: {
+    name: 'mainnet',
+    rpcUrl: 'wss://rpc.vara.network',
+  },
+  programs: {
+    bolaoCore: '0x52f5f89954bbf1528f84eb1ca90100b47a6a50b0fe76e6ce31ed3ff55497ed98',
+    oracle: '0xff7795305eaa4abe36cae9aa6b11373327eda01218c787cb391b7c38bc3fcfbb',
+    freebetLedger: null,
+  },
+  services: {
+    fixtureProvider: 'football-data.org',
+    oddsProvider: 'manual',
+    footballContextProvider: 'manual',
+    smartcupApiUrl: 'https://smartcupleague-api.onrender.com',
+    indexerGraphqlUrl: 'http://localhost:4350/graphql',
+    indexerGraphqlTimeoutMs: 60_000,
+    footballDataBaseUrl: 'https://api.football-data.org/v4',
+    footballDataApiToken: null,
+    manualOddsJson: null,
+    manualFootballContextJson: null,
+  },
+  artifacts: {
+    bolaoIdlPath: 'artifacts/idl/bolao_program.idl',
+    freebetLedgerIdlPath: 'artifacts/idl/freebet-ledger.idl',
+    oracleIdlPath: 'artifacts/idl/oracle_program.idl',
+    tournamentProfilePath: 'tournaments/worldcup-2026.mvp.json',
+  },
+  economics: {
+    matchWinnerPoolBps: 8500,
+    finalPrizePoolBps: 1000,
+    protocolFeeBps: 500,
+  },
+  policy: {
+    mode: 'read_only',
+    cutoffBufferMs: 15 * 60 * 1000,
+    minStakeUsd: '3',
+    maxStakePlanck: '0',
+    maxTournamentExposurePlanck: '0',
+    maxStakeUsd: null,
+    maxTournamentExposureUsd: null,
+    approvalFlowVerified: false,
+    liveSmokeVerified: false,
+    liveSmokeReference: null,
+  },
+  telegram: {
+    botToken: null,
+    adminIds: [],
+    mode: 'polling',
+    webhookUrl: null,
+    webhookHost: '0.0.0.0',
+    webhookPort: 8787,
+    webhookSecret: null,
+    publicBotName: 'Your SmartCup Agent',
+    predictionAlertsEnabled: true,
+    predictionAlertLeadMinutes: 30,
+    predictionAlertScanMs: 5 * 60 * 1000,
+    predictionAlertChatIds: [],
+  },
+};

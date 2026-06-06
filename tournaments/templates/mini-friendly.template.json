@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "smartpredictor.tournament-profile.v1",
+  "tournamentId": "vara-agentic-mini-YYYY-MM",
+  "slug": "mini-friendly-YYYY-MM",
+  "name": "SmartCup Mini Friendly Tournament",
+  "season": "YYYY-MM",
+  "timezone": "UTC",
+  "matchCount": null,
+  "defaultRiskMode": "balanced",
+  "programs": {
+    "bolaoCore": "0xREPLACE_WITH_TOURNAMENT_BOLAO_CORE",
+    "oracle": "0xREPLACE_WITH_TOURNAMENT_ORACLE",
+    "freebetLedger": null
+  },
+  "providers": {
+    "fixtures": "football-data.org",
+    "odds": [],
+    "news": [],
+    "injuries": []
+  },
+  "cutoff": {
+    "predictionCutoffMinutes": 10,
+    "safetyBufferMs": 900000
+  },
+  "entry": {
+    "minimumEntryUsd": 3,
+    "minimumEntrySource": "dynamic_usd_to_vara"
+  },
+  "scoring": {
+    "exactScorePoints": 3,
+    "correctOutcomePoints": 1,
+    "incorrectPoints": 0,
+    "phaseWeightsApply": true
+  },
+  "claims": {
+    "matchRewardClaimWindowHours": 48
+  },
+  "rewardSplit": {
+    "matchWinnerPoolBps": 8500,
+    "finalPrizePoolBps": 1000,
+    "protocolFeeBps": 500
+  },
+  "finalPrize": {
+    "placesPaid": 5,
+    "distribution": [
+      {
+        "place": 1,
+        "bps": 4500
+      },
+      {
+        "place": 2,
+        "bps": 2500
+      },
+      {
+        "place": 3,
+        "bps": 1500
+      },
+      {
+        "place": 4,
+        "bps": 1000
+      },
+      {
+        "place": 5,
+        "bps": 500
+      }
+    ],
+    "tieBreak": "combine_and_split_tied_positions"
+  },
+  "phases": [
+    {
+      "key": "custom",
+      "name": "Mini Tournament",
+      "smartcupPhaseNames": ["Mini Tournament"],
+      "pointsWeight": 1,
+      "weightSource": "operator_config",
+      "description": "Flat scoring profile for 10-20 selected friendly matches.",
+      "startsAt": null,
+      "endsAt": null,
+      "matchIdRange": null
+    }
+  ],
+  "podiumPick": null,
+  "notes": [
+    "Copy this file for each mini tournament and replace tournamentId, slug, name, season, program IDs, matchCount, phase date window, and provider settings.",
+    "Recommended mini tournament size is 10-20 matches.",
+    "No podium pick is expected for the friendly-match mini tournament unless the deployed protocol explicitly supports it.",
+    "For mini tournaments, prefer flat phase weighting unless the published rules say otherwise."
+  ]
+}

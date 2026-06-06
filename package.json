@@ -1,0 +1,85 @@
+{
+  "name": "smartcup-prediction-agent-template",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Personal, non-custodial SmartCup League prediction agent template for Vara.",
+  "type": "module",
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/cli.js",
+    "dev": "tsx src/cli.ts",
+    "setup-check": "tsx src/cli.ts setup-check",
+    "sync": "tsx src/cli.ts sync",
+    "profile": "tsx src/cli.ts profile",
+    "recommend": "tsx src/cli.ts recommend",
+    "team-rating": "tsx src/cli.ts team-rating",
+    "football-data": "tsx src/cli.ts football-data",
+    "pool": "tsx src/cli.ts pool",
+    "crowd": "tsx src/cli.ts crowd",
+    "ev": "tsx src/cli.ts ev",
+    "points": "tsx src/cli.ts points",
+    "leaderboard": "tsx src/cli.ts leaderboard",
+    "opponents": "tsx src/cli.ts opponents",
+    "sample-opponents": "tsx src/cli.ts sample-opponents",
+    "simulate": "tsx src/cli.ts simulate",
+    "decide": "tsx src/cli.ts decide",
+    "market": "tsx src/cli.ts market",
+    "timing": "tsx src/cli.ts timing",
+    "crowd-map": "tsx src/cli.ts crowd-map",
+    "context-risk": "tsx src/cli.ts context-risk",
+    "position-strategy": "tsx src/cli.ts position-strategy",
+    "alternatives": "tsx src/cli.ts alternatives",
+    "podium": "tsx src/cli.ts podium",
+    "advisory": "tsx src/cli.ts advisory",
+    "plan-open-matches": "tsx src/cli.ts plan-open-matches",
+    "onboarding": "tsx src/cli.ts onboarding",
+    "reconcile-predictions": "tsx src/cli.ts reconcile-predictions",
+    "submit": "tsx src/cli.ts submit",
+    "evaluate": "tsx src/cli.ts evaluate",
+    "claim": "tsx src/cli.ts claim",
+    "report": "tsx src/cli.ts report",
+    "calibration": "tsx src/cli.ts calibration",
+    "list-reports": "tsx src/cli.ts list-reports",
+    "export-report": "tsx src/cli.ts export-report",
+    "freebet": "tsx src/cli.ts freebet",
+    "refund": "tsx src/cli.ts refund",
+    "telegram-config": "tsx src/cli.ts telegram-config",
+    "telegram-nl-smoke": "tsx src/cli.ts telegram-nl-smoke",
+    "telegram-private-smoke": "tsx src/cli.ts telegram-private-smoke",
+    "telegram-bot": "tsx src/cli.ts telegram-bot",
+    "telegram-bot:prod": "node dist/cli.js telegram-bot",
+    "telegram-bot:launchd:install": "bash scripts/install-macos-launchd.sh",
+    "telegram-bot:launchd:uninstall": "bash scripts/uninstall-macos-launchd.sh"
+  },
+  "dependencies": {
+    "vara-wallet": "^0.20.1"
+  },
+  "overrides": {
+    "ws": "8.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.7.0"
+  },
+  "keywords": [
+    "smartcup",
+    "vara",
+    "prediction-agent",
+    "telegram-bot",
+    "non-custodial",
+    "sports-prediction"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/smartcupleague/smartcup-prediction-agent-template.git"
+  },
+  "bugs": {
+    "url": "https://github.com/smartcupleague/smartcup-prediction-agent-template/issues"
+  },
+  "homepage": "https://github.com/smartcupleague/smartcup-prediction-agent-template#readme"
+}
