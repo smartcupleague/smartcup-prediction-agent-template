@@ -11,6 +11,7 @@ import type {
   TransactionSafetyCheck,
   U128String,
 } from '../types/index.js';
+import { resolveFreebetLedgerProgramId } from '../freebet/freebet-ledger-resolver.js';
 import { evaluateAutopilotReadiness } from './autopilot-readiness.js';
 
 export type PlaceBetPlanInput = {
@@ -118,12 +119,14 @@ export function buildSpendFreebetTransactionPlan(
   const score = input.scoreOverride ?? decision.selected.score;
   const penaltyWinner = input.penaltyWinnerOverride ?? decision.selected.penaltyWinner;
   const freebetAmountPlanck = input.amountPlanckOverride ?? decision.economics.stakePlanck;
-  const ledgerProgramId =
-    config.programs.freebetLedger ?? decision.sourceSnapshots.chain.freebetLedgerProgramId;
+  const ledgerResolution = resolveFreebetLedgerProgramId(config, {
+    decisionChainLedgerId: decision.sourceSnapshots.chain.freebetLedgerProgramId,
+  });
+  const ledgerProgramId = ledgerResolution.programId;
 
   if (!ledgerProgramId) {
     throw new Error(
-      'SpendFreebet requires a configured or discovered Freebet Ledger program id. Set SMARTCUP_FREEBET_LEDGER_ID or refresh the decision from live state.',
+      'SpendFreebet requires a configured or discovered Freebet Ledger program id. Set SMARTCUP_FREEBET_LEDGER_ID, refresh the decision from live state, or set programs.freebetLedger in the tournament profile.',
     );
   }
 
@@ -159,6 +162,7 @@ export function buildSpendFreebetTransactionPlan(
       economics: decision.economics,
       fundingSource: decision.economics.fundingSource,
       freebetAmountPlanck,
+      freebetLedgerSource: ledgerResolution.source,
       amountOverrideSource: input.amountPlanckOverride ? 'operator_value_override' : null,
       varaWalletSyntax:
         'vara-wallet call <freebet_ledger_program_id> FreebetLedger/SpendFreebet --args \'[<bolao_core_program_id>,match_id,amount_planck,{"home":home,"away":away},penalty_winner]\' --value 0 --units raw --idl artifacts/idl/freebet-ledger.idl',

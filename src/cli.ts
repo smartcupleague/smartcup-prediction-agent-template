@@ -2486,7 +2486,7 @@ async function applyDuplicatePredictionGuard(
   if (plan.kind !== 'PlaceBet' && plan.kind !== 'SpendFreebet') return;
   if (plan.status === 'blocked') return;
 
-  const matchId = String(plan.args[0] ?? '');
+  const { matchId } = predictionPlanPayload(plan);
   const checkIndex = plan.safetyChecks.findIndex((check) => check.name === 'duplicate_prediction');
   if (checkIndex < 0) return;
 
@@ -2575,9 +2575,7 @@ async function applyPlaceBetPayloadGuard(
   if (plan.kind !== 'PlaceBet' && plan.kind !== 'SpendFreebet') return;
   if (plan.status === 'blocked') return;
 
-  const matchId = String(plan.args[0] ?? '');
-  const score = plan.args[1] as Score | undefined;
-  const penaltyWinner = (plan.args[2] ?? null) as PenaltyWinner | null;
+  const { matchId, score, penaltyWinner } = predictionPlanPayload(plan);
   const checkIndex = plan.safetyChecks.findIndex((check) => check.name === 'place_bet_payload');
   if (checkIndex < 0) return;
 
@@ -2637,7 +2635,7 @@ async function applyCutoffBufferGuard(
   if (plan.kind !== 'PlaceBet' && plan.kind !== 'SpendFreebet') return;
   if (plan.status === 'blocked') return;
 
-  const matchId = String(plan.args[0] ?? '');
+  const { matchId } = predictionPlanPayload(plan);
   const checkIndex = plan.safetyChecks.findIndex((check) => check.name === 'cutoff_buffer');
   if (checkIndex < 0) return;
 
@@ -2687,6 +2685,26 @@ async function applyCutoffBufferGuard(
       },
     });
   }
+}
+
+function predictionPlanPayload(plan: StoredTransactionPlan): {
+  matchId: string;
+  score: Score | undefined;
+  penaltyWinner: PenaltyWinner | null;
+} {
+  if (plan.kind === 'SpendFreebet') {
+    return {
+      matchId: String(plan.args[1] ?? ''),
+      score: plan.args[3] as Score | undefined,
+      penaltyWinner: (plan.args[4] ?? null) as PenaltyWinner | null,
+    };
+  }
+
+  return {
+    matchId: String(plan.args[0] ?? ''),
+    score: plan.args[1] as Score | undefined,
+    penaltyWinner: (plan.args[2] ?? null) as PenaltyWinner | null,
+  };
 }
 
 async function applyFreebetReadinessGuard(

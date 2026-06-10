@@ -9,6 +9,7 @@ import type {
   U128String,
   UserBetView,
 } from '../types/index.js';
+import { resolveFreebetLedgerProgramId, type FreebetLedgerProgramSource } from './freebet-ledger-resolver.js';
 
 export type FreebetStatusReport = {
   checkedAt: string;
@@ -17,7 +18,7 @@ export type FreebetStatusReport = {
   freebetLedger: {
     configured: boolean;
     programId: HexAddress | null;
-    source: 'config' | 'bolao_state' | 'missing';
+    source: FreebetLedgerProgramSource;
     betProgramAuthorized: boolean | null;
     balancePlanck: U128String | null;
     totalLiabilityPlanck: U128String | null;
@@ -61,9 +62,10 @@ export async function buildFreebetStatusReport(
   if (!priceResult.ok) warnings.push(`Oracle VARA/USD price read failed: ${priceResult.error}`);
 
   const stateLedgerId = stateResult.ok ? stateResult.value.freebet_ledger_program_id : null;
-  const configuredLedgerId = config.programs.freebetLedger;
-  const ledgerProgramId = configuredLedgerId ?? (stateLedgerId as HexAddress | null);
-  const ledgerSource = configuredLedgerId ? 'config' : stateLedgerId ? 'bolao_state' : 'missing';
+  const ledgerResolution = resolveFreebetLedgerProgramId(config, {
+    bolaoStateLedgerId: stateLedgerId,
+  });
+  const ledgerProgramId = ledgerResolution.programId;
   const effectiveConfig: AgentConfig = {
     ...config,
     programs: {
@@ -98,7 +100,9 @@ export async function buildFreebetStatusReport(
     if (surplusResult.ok) surplusVaraPlanck = surplusResult.value;
     else warnings.push(`Freebet surplus read failed: ${surplusResult.error}`);
   } else {
-    warnings.push('Freebet Ledger program ID is not configured and was not discoverable from BolaoCore state.');
+    warnings.push(
+      'Freebet Ledger program ID is not configured and was not discoverable from BolaoCore state or the tournament profile.',
+    );
   }
 
   const bets = userBetsResult.ok ? userBetsResult.value : [];
@@ -125,7 +129,7 @@ export async function buildFreebetStatusReport(
     freebetLedger: {
       configured: Boolean(ledgerProgramId),
       programId: ledgerProgramId,
-      source: ledgerSource,
+      source: ledgerResolution.source,
       betProgramAuthorized,
       balancePlanck,
       totalLiabilityPlanck,
