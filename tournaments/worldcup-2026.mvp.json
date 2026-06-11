@@ -8,9 +8,9 @@
   "matchCount": 104,
   "defaultRiskMode": "balanced",
   "programs": {
-    "bolaoCore": "0x52f5f89954bbf1528f84eb1ca90100b47a6a50b0fe76e6ce31ed3ff55497ed98",
-    "oracle": "0xff7795305eaa4abe36cae9aa6b11373327eda01218c787cb391b7c38bc3fcfbb",
-    "freebetLedger": null
+    "bolaoCore": "0x3fec9d4b68f95917e572e03f8615b2512b8a5051d462dcacb8e4fdc97e8b4894",
+    "oracle": "0x7c4fa90ac5672a0d7bc22d227962704b14690e2e14fc20098501eea37af36315",
+    "freebetLedger": "0x9541487e75500c80f18cc03d08abb24681df6b19c28064e8503f0dd76175239e"
   },
   "providers": {
     "fixtures": "football-data.org",
