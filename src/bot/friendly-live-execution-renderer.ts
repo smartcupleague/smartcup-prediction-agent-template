@@ -247,7 +247,10 @@ function checkStatusLabel(check: TransactionSafetyCheck): string {
 
 function friendlyResultReason(result: StoredTransactionResult): string {
   const error = result.error ?? '';
-  const warnings = renderFriendlySourceWarningBullets([error], 1);
+  const diagnostic = executionDiagnostic(result);
+  const specific = specificExecutionReason(diagnostic);
+  if (specific) return specific;
+  const warnings = renderFriendlySourceWarningBullets([diagnostic], 1);
   if (warnings[0]) return warnings[0];
   if (/read_only/i.test(error)) return 'Operator Policy is Read Only, so live wallet execution is blocked.';
   if (/approval_required.*explicit approval|explicit approval/i.test(error)) {
@@ -258,6 +261,50 @@ function friendlyResultReason(result: StoredTransactionResult): string {
   if (/transaction submitted|plan stored/i.test(error)) return 'Plan storage completed.';
   if (!error) return 'No additional reason recorded.';
   return 'The executor returned a guarded failure. Review Data Provider Status and rerun a fresh plan before retrying.';
+}
+
+function executionDiagnostic(result: StoredTransactionResult): string {
+  const parts = [result.error, stringPayload(result.payload?.stderr), stringPayload(result.payload?.stdout)]
+    .filter((part): part is string => Boolean(part && part.trim()))
+    .map((part) => part.trim());
+  return parts.join('\n');
+}
+
+function stringPayload(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
+function specificExecutionReason(diagnostic: string): string | null {
+  if (!diagnostic) return null;
+  if (/insufficient|not enough|balance too low|cannot withdraw|existential/i.test(diagnostic)) {
+    return 'Wallet execution failed because available balance, existential deposit, gas, or attached value was not sufficient for the live call.';
+  }
+  if (/revert|reverted|extrinsicfailed|moduleerror|contracttrapped|panic|execution ran out of gas/i.test(diagnostic)) {
+    return `BolaoCore rejected the live call. Detail: ${shortDiagnostic(diagnostic)}`;
+  }
+  if (/timeout|timed out|operation was aborted|aborted/i.test(diagnostic)) {
+    return 'The wallet command timed out before the agent could prove whether the transaction landed. Check wallet predictions/status before retrying.';
+  }
+  if (/account.*(not found|missing|unknown)|wallet.*account|keyring/i.test(diagnostic)) {
+    return 'The configured vara-wallet signing account was not available on this deployment. Import or mount the agent wallet account before live execution.';
+  }
+  if (/no such file|enoent|permission denied/i.test(diagnostic)) {
+    return 'The configured vara-wallet executable could not be run on this deployment. Check Render build/runtime configuration.';
+  }
+  if (/idl|decode|encode|payload|variant|method/i.test(diagnostic)) {
+    return `Wallet or IDL encoding failed for this contract call. Detail: ${shortDiagnostic(diagnostic)}`;
+  }
+  if (/rpc|websocket|network|transport|connection|querybetsbyuser|querystate|querymatch/i.test(diagnostic)) {
+    return 'The wallet or chain RPC failed during execution/readback. Re-query wallet predictions/status before retrying.';
+  }
+  return null;
+}
+
+function shortDiagnostic(diagnostic: string): string {
+  return sanitizedCheckMessage(diagnostic)
+    .replace(/\s+/g, ' ')
+    .slice(0, 260)
+    .trim();
 }
 
 function policyBlockReason(message: string): string {

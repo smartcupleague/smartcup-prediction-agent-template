@@ -50,6 +50,7 @@ export async function executeTransactionPlan(
       },
     };
   } catch (error) {
+    const executionError = normalizeExecutionError(error);
     return {
       id: `txresult-${plan.id}-failed-${createdAt.replace(/[:.]/g, '-')}`,
       planId: plan.id,
@@ -60,9 +61,11 @@ export async function executeTransactionPlan(
       messageId: null,
       blockHash: null,
       blockNumber: null,
-      error: error instanceof Error ? error.message : String(error),
+      error: executionError.message,
       chainReadback: null,
       payload: {
+        stdout: executionError.stdout,
+        stderr: executionError.stderr,
         command: redactCommand(command),
         executionMode: config.policy.mode,
         explicitApproval: options.explicitApproval,
@@ -140,6 +143,15 @@ function buildExecutionCommand(plan: StoredTransactionPlan): { command: string; 
   const [command, ...args] = commandParts;
   if (!command) throw new Error('Stored command is empty.');
   return { command, args };
+}
+
+function normalizeExecutionError(error: unknown): { message: string; stdout: string | null; stderr: string | null } {
+  const record = error && typeof error === 'object' ? (error as Record<string, unknown>) : {};
+  return {
+    message: error instanceof Error ? error.message : String(error),
+    stdout: typeof record.stdout === 'string' && record.stdout.trim() ? record.stdout : null,
+    stderr: typeof record.stderr === 'string' && record.stderr.trim() ? record.stderr : null,
+  };
 }
 
 function parseVaraWalletOutput(stdout: string): unknown {

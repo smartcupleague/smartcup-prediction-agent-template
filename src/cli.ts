@@ -75,6 +75,7 @@ import {
   TeamRatingModel,
 } from './models/index.js';
 import { listTournamentProfileOptions, loadTournamentProfile, reconcileTournamentProfileWithChain } from './tournament/index.js';
+import { ensureVaraWalletPersistentHome } from './utils/vara-wallet-bin.js';
 import {
   formatUsdAmount,
   formatVaraUsdPrice,
@@ -220,6 +221,8 @@ function printHelp(): void {
 }
 
 async function main(): Promise<void> {
+  ensureVaraWalletPersistentHome();
+
   const command = (process.argv[2] ?? 'help') as Command;
   const topLevelArgs = parseArgs(process.argv.slice(3));
 
