@@ -2509,26 +2509,19 @@ async function applyDuplicatePredictionGuard(
       indexerWarning = indexerError instanceof Error ? indexerError.message : String(indexerError);
     }
     const indexerDuplicate = indexerBets[0] ?? null;
-    const duplicate = chainDuplicate ?? indexerDuplicate;
 
-    if (duplicate) {
+    if (chainDuplicate) {
       plan.safetyChecks[checkIndex] = {
         name: 'duplicate_prediction',
         status: 'fail',
         message: `Wallet already has a prediction for match ${matchId}; duplicate ${plan.kind} is blocked.`,
         details: {
           matchId,
-          source: chainDuplicate ? 'bolao_query_bets_by_user' : 'indexer',
-          existingScore: chainDuplicate
-            ? chainDuplicate.score
-            : { home: indexerDuplicate?.scoreHome, away: indexerDuplicate?.scoreAway },
-          existingPenaltyWinner: chainDuplicate
-            ? chainDuplicate.penalty_winner
-            : indexerDuplicate?.penaltyWinner ?? null,
-          existingStakeInMatchPool: chainDuplicate
-            ? chainDuplicate.stake_in_match_pool
-            : indexerDuplicate?.stakeRaw,
-          claimed: chainDuplicate ? chainDuplicate.claimed : null,
+          source: 'bolao_query_bets_by_user',
+          existingScore: chainDuplicate.score,
+          existingPenaltyWinner: chainDuplicate.penalty_winner,
+          existingStakeInMatchPool: chainDuplicate.stake_in_match_pool,
+          claimed: chainDuplicate.claimed,
         },
       };
       plan.status = 'blocked';
@@ -2546,9 +2539,19 @@ async function applyDuplicatePredictionGuard(
         checkedChainBetCount: userBets.length,
         checkedIndexerBetCount: indexerBets.length,
         indexerWarning,
-        note: indexerWarning
-          ? 'On-chain duplicate read passed; indexer corroboration was unavailable and treated as a warning.'
+        indexerDuplicate: indexerDuplicate
+          ? {
+              matchId: indexerDuplicate.matchId,
+              score: { home: indexerDuplicate.scoreHome, away: indexerDuplicate.scoreAway },
+              penaltyWinner: indexerDuplicate.penaltyWinner ?? null,
+              stakeRaw: indexerDuplicate.stakeRaw,
+            }
           : null,
+        note: indexerDuplicate
+          ? 'On-chain duplicate read passed. Indexer returned a matching wallet/match row, but indexer duplicate rows are advisory because redeployments can leave stale cross-program projections.'
+          : indexerWarning
+            ? 'On-chain duplicate read passed; indexer corroboration was unavailable and treated as a warning.'
+            : null,
       },
     };
     plan.updatedAt = new Date().toISOString();
