@@ -226,7 +226,7 @@ async function handleOperatorDecide(
     'summary',
   ]);
   const decisionId = extractDecisionId(output);
-  const decision = decisionId ? new MemoryStore().listDecisions().find((entry) => entry.id === decisionId) : null;
+  const decision = decisionId ? new MemoryStore().getDecision(decisionId) : null;
   let friendlyPreview: string | null = null;
   if (decision) {
     if (args.focus === 'market' || args.market === 'true') friendlyPreview = renderFriendlyMarketComparison(decision);

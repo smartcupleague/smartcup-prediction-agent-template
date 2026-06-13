@@ -445,7 +445,6 @@ async function handleTelegramUpdate(config: AgentConfig, update: TelegramUpdate)
   }
 
   const user = telegramUserContext(message.from);
-  const memory = new MemoryStore();
   if (command === 'menu') {
     wizardSessions.delete(wizardKey(message.chat.id, message.from));
     await sendTournamentSelector(config, message.chat.id, message.from);
@@ -466,6 +465,7 @@ async function handleTelegramUpdate(config: AgentConfig, update: TelegramUpdate)
     );
     return;
   }
+  const memory = new MemoryStore();
   const reply = await routeTelegramCommand({
     config,
     command,
@@ -2231,7 +2231,7 @@ async function handleWizardText(config: AgentConfig, message: TelegramMessage, t
 
   if (session.step === 'awaiting_approval_stake_usd') {
     const decisionId = session.approvalDecisionId;
-    const decision = decisionId ? new MemoryStore().listDecisions().find((entry) => entry.id === decisionId) : null;
+    const decision = decisionId ? new MemoryStore().getDecision(decisionId) : null;
     if (!decision) {
       wizardSessions.delete(key);
       await sendTelegramMessage(
@@ -4272,7 +4272,7 @@ async function sendPersonalSavedReportDetail(
     return;
   }
 
-  const decision = new MemoryStore().listDecisions().find((entry) => entry.id === decisionId);
+  const decision = new MemoryStore().getDecision(decisionId);
   if (!decision) {
     await sendTelegramMessage(
       config,
@@ -4358,7 +4358,7 @@ async function confirmPersonalSavedReportDiscard(
     await sendTelegramMessage(config, chatId, `Discard denied.\nReason: ${permission.reason}`);
     return;
   }
-  const decision = new MemoryStore().listDecisions().find((entry) => entry.id === decisionId);
+  const decision = new MemoryStore().getDecision(decisionId);
   if (!decision) {
     await sendTelegramMessage(
       config,
@@ -4411,7 +4411,7 @@ async function discardPersonalSavedReport(
     return;
   }
   const memory = new MemoryStore();
-  const decision = memory.listDecisions().find((entry) => entry.id === decisionId);
+  const decision = memory.getDecision(decisionId);
   const deleted = memory.deleteDecision(decisionId);
   deleteTemporaryDraftsForDecision(decisionId);
   await sendTelegramMessage(
@@ -4803,7 +4803,7 @@ async function startApprovalValueTextFlowFromCallback(
     await sendTelegramMessage(config, chatId, 'Saved report not found. Generate a fresh prediction preview first.');
     return;
   }
-  const decision = new MemoryStore().listDecisions().find((entry) => entry.id === decisionId);
+  const decision = new MemoryStore().getDecision(decisionId);
   if (!decision) {
     await sendTelegramMessage(
       config,
@@ -5207,7 +5207,7 @@ async function resolveMatchPickDraftForCallback(
     return existing;
   }
 
-  const decision = new MemoryStore().listDecisions().find((entry) => entry.id === draftOrDecisionId);
+  const decision = new MemoryStore().getDecision(draftOrDecisionId);
   if (!decision) {
     await sendTelegramMessage(config, chatId, `Decision not found in local memory: ${draftOrDecisionId}`);
     return null;
@@ -5406,7 +5406,7 @@ function renderExportReportKeyboard(): TelegramInlineKeyboard {
 }
 
 function savedDecisionExists(decisionId: string): boolean {
-  return new MemoryStore().listDecisions().some((decision) => decision.id === decisionId);
+  return Boolean(new MemoryStore().getDecision(decisionId));
 }
 
 function saveNaturalLanguageTelemetry(

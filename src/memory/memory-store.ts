@@ -104,6 +104,10 @@ export class MemoryStore {
     return this.sqlite.listDecisions();
   }
 
+  getDecision(decisionId: string): DecisionReport | null {
+    return this.sqlite.getDecision(decisionId);
+  }
+
   deleteDecision(decisionId: string): boolean {
     this.snapshot.reports = this.snapshot.reports.filter((entry) => entry.id !== decisionId);
     const deleted = this.sqlite.deleteDecision(decisionId);
@@ -177,6 +181,14 @@ export class MemoryStore {
 
   listTransactionPlans(): StoredTransactionPlan[] {
     return this.sqlite.listTransactionPlans();
+  }
+
+  getTransactionPlan(planId: string): StoredTransactionPlan | null {
+    return this.sqlite.getTransactionPlan(planId);
+  }
+
+  listOpenTransactionPlansForExposure(excludePlanId: string): StoredTransactionPlan[] {
+    return this.sqlite.listOpenTransactionPlansForExposure(excludePlanId);
   }
 
   saveTransactionResult(result: StoredTransactionResult): void {

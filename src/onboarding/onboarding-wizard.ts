@@ -71,11 +71,9 @@ export async function buildOnboardingWizardReport(
   let eligibleMatches: EligibleMatchPlan | null = null;
   try {
     const chain = new BolaoChainClient(config);
-    const [state, userBets, profile] = await Promise.all([
-      chain.queryState(),
-      chain.queryBetsByUser(wallet),
-      loadTournamentProfile(config.artifacts.tournamentProfilePath),
-    ]);
+    const state = await chain.queryState();
+    const userBets = await chain.queryBetsByUser(wallet);
+    const profile = await loadTournamentProfile(config.artifacts.tournamentProfilePath);
     eligibleMatches = new FixtureAdapter().buildEligibleMatchPlan({
       wallet,
       matches: state.matches,

@@ -153,11 +153,9 @@ async function buildSimulationInputs(
   },
 ) {
   const chain = new BolaoChainClient(config);
-  const [match, state, profile] = await Promise.all([
-    chain.queryMatch(matchId),
-    chain.queryState(),
-    loadTournamentProfile(config.artifacts.tournamentProfilePath),
-  ]);
+  const match = await chain.queryMatch(matchId);
+  const state = await chain.queryState();
+  const profile = await loadTournamentProfile(config.artifacts.tournamentProfilePath);
   if (!match) throw new Error(`Match not found: ${matchId}`);
 
   const smartCupMatch = toSmartCupMatch(match);

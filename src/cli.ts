@@ -589,11 +589,9 @@ async function main(): Promise<void> {
     if (!matchId) throw new Error('points requires --match <id>.');
 
     const chain = new BolaoChainClient(config);
-    const [match, state, profile] = await Promise.all([
-      chain.queryMatch(matchId),
-      chain.queryState(),
-      loadTournamentProfile(config.artifacts.tournamentProfilePath),
-    ]);
+    const match = await chain.queryMatch(matchId);
+    const state = await chain.queryState();
+    const profile = await loadTournamentProfile(config.artifacts.tournamentProfilePath);
     if (!match) throw new Error(`Match not found: ${matchId}`);
 
     const smartCupMatch = toSmartCupMatch(match);
@@ -616,11 +614,9 @@ async function main(): Promise<void> {
     if (!matchId) throw new Error('leaderboard requires --match <id>.');
 
     const chain = new BolaoChainClient(config);
-    const [match, state, profile] = await Promise.all([
-      chain.queryMatch(matchId),
-      chain.queryState(),
-      loadTournamentProfile(config.artifacts.tournamentProfilePath),
-    ]);
+    const match = await chain.queryMatch(matchId);
+    const state = await chain.queryState();
+    const profile = await loadTournamentProfile(config.artifacts.tournamentProfilePath);
     if (!match) throw new Error(`Match not found: ${matchId}`);
 
     const smartCupMatch = toSmartCupMatch(match);
@@ -1447,14 +1443,12 @@ async function main(): Promise<void> {
     if (!decisionId) throw new Error('evaluate requires --decision <decision_id>.');
 
     const memory = new MemoryStore();
-    const decision = memory.listDecisions().find((entry) => entry.id === decisionId);
+    const decision = memory.getDecision(decisionId);
     if (!decision) throw new Error(`Decision report not found: ${decisionId}`);
 
     const chain = new BolaoChainClient(config);
-    const [match, claimStatus] = await Promise.all([
-      chain.queryMatch(decision.matchId),
-      chain.queryWalletClaimStatus(config.wallet.hexAddress).catch((error: unknown) => error),
-    ]);
+    const match = await chain.queryMatch(decision.matchId);
+    const claimStatus = await chain.queryWalletClaimStatus(config.wallet.hexAddress).catch((error: unknown) => error);
     if (!match) throw new Error(`Match not found: ${decision.matchId}`);
 
     const transactionPlans = memory.listTransactionPlans().filter((plan) => plan.decisionId === decision.id);
@@ -1496,11 +1490,9 @@ async function buildSimulationInputs(
   },
 ) {
   const chain = new BolaoChainClient(config);
-  const [match, state, profile] = await Promise.all([
-    chain.queryMatch(matchId),
-    chain.queryState(),
-    loadTournamentProfile(config.artifacts.tournamentProfilePath),
-  ]);
+  const match = await chain.queryMatch(matchId);
+  const state = await chain.queryState();
+  const profile = await loadTournamentProfile(config.artifacts.tournamentProfilePath);
   if (!match) throw new Error(`Match not found: ${matchId}`);
 
   const smartCupMatch = toSmartCupMatch(match);
@@ -2236,7 +2228,7 @@ function buildTransactionPlanFromSubmitArgs(
   if (kind === 'PlaceBet' || kind === 'SpendFreebet') {
     const decisionId = args.decision;
     if (!decisionId) throw new Error(`submit ${kind} requires --decision <decision_id>.`);
-    const decision = memory.listDecisions().find((entry) => entry.id === decisionId);
+    const decision = memory.getDecision(decisionId);
     if (!decision) throw new Error(`Decision report not found: ${decisionId}`);
     const manualScore = parseOptionalManualScore(args);
     const manualPenaltyWinner = parseOptionalPenaltyWinner(args);
@@ -2287,7 +2279,7 @@ function buildTransactionPlanFromSubmitArgs(
 }
 
 function loadStoredTransactionPlan(memory: MemoryStore, planId: string): StoredTransactionPlan {
-  const plan = memory.listTransactionPlans().find((entry) => entry.id === planId);
+  const plan = memory.getTransactionPlan(planId);
   if (!plan) throw new Error(`Transaction plan not found: ${planId}`);
   return {
     ...plan,
@@ -2646,10 +2638,8 @@ async function applyCutoffBufferGuard(
   if (checkIndex < 0) return;
 
   try {
-    const [match, profile] = await Promise.all([
-      new BolaoChainClient(config).queryMatch(matchId),
-      loadTournamentProfile(config.artifacts.tournamentProfilePath).catch(() => null),
-    ]);
+    const match = await new BolaoChainClient(config).queryMatch(matchId);
+    const profile = await loadTournamentProfile(config.artifacts.tournamentProfilePath).catch(() => null);
 
     if (!match) {
       blockPlanWithSafetyCheck(plan, checkIndex, {
@@ -2733,10 +2723,8 @@ async function applyFreebetReadinessGuard(
     };
     const client = new FreebetLedgerClient(ledgerConfig);
     const amountPlanck = String(plan.args[2] ?? '0');
-    const [authorized, balance] = await Promise.all([
-      client.isBetProgramAuthorized(config.programs.bolaoCore),
-      client.balanceOf(config.wallet.hexAddress),
-    ]);
+    const authorized = await client.isBetProgramAuthorized(config.programs.bolaoCore);
+    const balance = await client.balanceOf(config.wallet.hexAddress);
 
     if (!authorized) {
       blockPlanWithSafetyCheck(plan, checkIndex, {
@@ -3011,10 +2999,8 @@ async function applyClaimMatchRewardEligibilityGuard(
 
   try {
     const chain = new BolaoChainClient(config);
-    const [match, bets] = await Promise.all([
-      chain.queryMatch(matchId),
-      chain.queryBetsByUser(config.wallet.hexAddress),
-    ]);
+    const match = await chain.queryMatch(matchId);
+    const bets = await chain.queryBetsByUser(config.wallet.hexAddress);
     const bet = bets.find((entry) => String(entry.match_id) === matchId);
 
     if (!match) {
@@ -3165,7 +3151,7 @@ async function applyBalanceExposureGuard(
       config,
       plan,
       userBets,
-      storedPlans: memory.listTransactionPlans(),
+      storedPlans: memory.listOpenTransactionPlansForExposure(plan.id),
     });
 
     if (evaluation.blocked) {
@@ -3781,7 +3767,7 @@ async function buildTelegramNaturalLanguageSmokeReport(
       : true;
     const decisionExists =
       parsed.intent === 'approve_plan' && parsed.slots.decisionId
-        ? input.memory.listDecisions().some((decision) => decision.id === parsed.slots.decisionId)
+        ? Boolean(input.memory.getDecision(parsed.slots.decisionId))
         : null;
     const duplicatePredictionExists =
       parsed.intent === 'approve_plan' && parsed.slots.decisionId
@@ -4903,7 +4889,7 @@ function approvalDecisionHasLocalDuplicate(
   memory: MemoryStore,
   decisionId: string,
 ): boolean {
-  const decision = memory.listDecisions().find((entry) => entry.id === decisionId);
+  const decision = memory.getDecision(decisionId);
   if (!decision) return false;
   return memory
     .listPredictions()

@@ -423,6 +423,13 @@ export class SqliteMemoryStore {
     return rows.map((row) => JSON.parse(row.payload_json) as DecisionReport);
   }
 
+  getDecision(decisionId: string): DecisionReport | null {
+    const row = this.db
+      .prepare('SELECT payload_json FROM decisions WHERE id = ?')
+      .get(decisionId) as JsonPayloadRow | undefined;
+    return row ? (JSON.parse(row.payload_json) as DecisionReport) : null;
+  }
+
   deleteDecision(decisionId: string): boolean {
     const result = this.db.prepare('DELETE FROM decisions WHERE id = ?').run(decisionId);
     return result.changes > 0;
@@ -483,6 +490,29 @@ export class SqliteMemoryStore {
     const rows = this.db
       .prepare('SELECT payload_json FROM transaction_plans ORDER BY created_at ASC, id ASC')
       .all() as JsonPayloadRow[];
+    return rows.map((row) => JSON.parse(row.payload_json) as StoredTransactionPlan);
+  }
+
+  getTransactionPlan(planId: string): StoredTransactionPlan | null {
+    const row = this.db
+      .prepare('SELECT payload_json FROM transaction_plans WHERE id = ?')
+      .get(planId) as JsonPayloadRow | undefined;
+    return row ? (JSON.parse(row.payload_json) as StoredTransactionPlan) : null;
+  }
+
+  listOpenTransactionPlansForExposure(excludePlanId: string): StoredTransactionPlan[] {
+    const rows = this.db
+      .prepare(
+        `
+          SELECT payload_json
+          FROM transaction_plans
+          WHERE id != ?
+            AND kind IN ('PlaceBet', 'SubmitPodiumPick')
+            AND status NOT IN ('blocked', 'failed', 'cancelled')
+          ORDER BY created_at ASC, id ASC
+        `,
+      )
+      .all(excludePlanId) as JsonPayloadRow[];
     return rows.map((row) => JSON.parse(row.payload_json) as StoredTransactionPlan);
   }
 

@@ -123,13 +123,11 @@ export class AccountReadinessAdapter {
 
   async check(): Promise<AccountReadinessReport> {
     const wallet = this.config.wallet.hexAddress;
-    const [localWallet, balance, profile, currentPredictions, points] = await Promise.all([
-      this.checkLocalWallet(),
-      this.checkBalance(),
-      this.checkProfile(),
-      this.checkCurrentPredictions(wallet),
-      this.checkPoints(wallet),
-    ]);
+    const localWallet = await this.checkLocalWallet();
+    const balance = await this.checkBalance();
+    const profile = await this.checkProfile();
+    const currentPredictions = await this.checkCurrentPredictions(wallet);
+    const points = await this.checkPoints(wallet);
 
     const terms = this.checkTerms(wallet);
     const readyForReadOnly =
