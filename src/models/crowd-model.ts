@@ -158,9 +158,13 @@ function scoreKey(score: Score): string {
 }
 
 function multiplyPlanckByShare(planck: U128String, share: number): U128String {
-  if (!/^\d+$/.test(planck)) throw new Error(`Invalid planck value: ${planck}`);
+  if (!isNonNegativePlanck(planck)) throw new Error(`Invalid planck value: ${planck}`);
   const scaledShare = BigInt(Math.round(share * 1_000_000));
   return ((BigInt(planck) * scaledShare) / 1_000_000n).toString();
+}
+
+function isNonNegativePlanck(value: string): boolean {
+  return /^\d+$/.test(value) || /^0x[0-9a-fA-F]+$/.test(value);
 }
 
 function crowdConfidence(totalBets: number): number {

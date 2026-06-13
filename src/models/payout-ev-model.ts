@@ -109,8 +109,12 @@ function scoreKey(score: Score): string {
 }
 
 function toBigInt(value: U128String): bigint {
-  if (!/^\d+$/.test(value)) throw new Error(`Invalid planck value: ${value}`);
+  if (!isNonNegativePlanck(value)) throw new Error(`Invalid planck value: ${value}`);
   return BigInt(value);
+}
+
+function isNonNegativePlanck(value: string): boolean {
+  return /^\d+$/.test(value) || /^0x[0-9a-fA-F]+$/.test(value);
 }
 
 function toSignedBigInt(value: string): bigint {

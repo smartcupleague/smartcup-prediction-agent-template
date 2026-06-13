@@ -458,7 +458,7 @@ function normalizeWallet(wallet: ActorId | string): string {
 }
 
 function toBigIntOrNull(value: U128String): bigint | null {
-  return /^\d+$/.test(value) ? BigInt(value) : null;
+  return /^\d+$/.test(value) || /^0x[0-9a-fA-F]+$/.test(value) ? BigInt(value) : null;
 }
 
 function clamp01(value: number): number {
