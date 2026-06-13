@@ -198,8 +198,12 @@ function localPlannedExposure(plans: StoredTransactionPlan[], currentPlanId: str
 }
 
 function parsePlanck(value: string, label: string): bigint {
-  if (!/^\d+$/.test(value)) throw new Error(`Invalid ${label}: ${value}`);
+  if (!isNonNegativePlanck(value)) throw new Error(`Invalid ${label}: ${value}`);
   return BigInt(value);
+}
+
+function isNonNegativePlanck(value: string): boolean {
+  return /^\d+$/.test(value) || /^0x[0-9a-fA-F]+$/.test(value);
 }
 
 function readBalancePlanck(value: unknown): U128String | null {
