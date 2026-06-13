@@ -51,20 +51,23 @@ export async function buildFreebetStatusReport(
   const chain = new BolaoChainClient(config);
   const oracle = new OracleClient(config);
 
-  const [stateResult, userBetsResult, priceResult] = await Promise.all([
-    capture(() => chain.queryState()),
-    capture(() => chain.queryBetsByUser(wallet)),
-    capture(() => oracle.queryVaraUsdPrice()),
-  ]);
+  const configuredLedgerResolution = resolveFreebetLedgerProgramId(config);
+  const stateResult = configuredLedgerResolution.programId
+    ? null
+    : await capture(() => chain.queryState());
+  const userBetsResult = await capture(() => chain.queryBetsByUser(wallet));
+  const priceResult = await capture(() => oracle.queryVaraUsdPrice());
 
-  if (!stateResult.ok) warnings.push(`BolaoCore state read failed: ${stateResult.error}`);
+  if (stateResult && !stateResult.ok) warnings.push(`BolaoCore state read failed: ${stateResult.error}`);
   if (!userBetsResult.ok) warnings.push(`BolaoCore user bet read failed: ${userBetsResult.error}`);
   if (!priceResult.ok) warnings.push(`Oracle VARA/USD price read failed: ${priceResult.error}`);
 
-  const stateLedgerId = stateResult.ok ? stateResult.value.freebet_ledger_program_id : null;
-  const ledgerResolution = resolveFreebetLedgerProgramId(config, {
-    bolaoStateLedgerId: stateLedgerId,
-  });
+  const stateLedgerId = stateResult?.ok ? stateResult.value.freebet_ledger_program_id : null;
+  const ledgerResolution = configuredLedgerResolution.programId
+    ? configuredLedgerResolution
+    : resolveFreebetLedgerProgramId(config, {
+        bolaoStateLedgerId: stateLedgerId,
+      });
   const ledgerProgramId = ledgerResolution.programId;
   const effectiveConfig: AgentConfig = {
     ...config,
@@ -81,12 +84,10 @@ export async function buildFreebetStatusReport(
 
   if (ledgerProgramId) {
     const ledger = new FreebetLedgerClient(effectiveConfig);
-    const [balanceResult, authorizedResult, liabilityResult, surplusResult] = await Promise.all([
-      capture(() => ledger.balanceOf(wallet)),
-      capture(() => ledger.isBetProgramAuthorized(config.programs.bolaoCore)),
-      capture(() => ledger.totalLiability()),
-      capture(() => ledger.surplusVara()),
-    ]);
+    const balanceResult = await capture(() => ledger.balanceOf(wallet));
+    const authorizedResult = await capture(() => ledger.isBetProgramAuthorized(config.programs.bolaoCore));
+    const liabilityResult = await capture(() => ledger.totalLiability());
+    const surplusResult = await capture(() => ledger.surplusVara());
 
     if (balanceResult.ok) balancePlanck = balanceResult.value;
     else warnings.push(`Freebet balance read failed: ${balanceResult.error}`);
