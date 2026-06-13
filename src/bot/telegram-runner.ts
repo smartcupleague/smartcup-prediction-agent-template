@@ -28,6 +28,7 @@ import type {
   ActorId,
   AgentConfig,
   DecisionReport,
+  FundingSource,
   MatchEligibilityView,
   ParserTelemetryActionTaken,
   ParserTelemetrySafetyOutcome,
@@ -1838,11 +1839,11 @@ async function handleTelegramCallback(config: AgentConfig, callback: TelegramCal
         `Resolved next open match for ${tournament.name}:`,
         renderEligibleMatchLine(match),
         '',
-        'Generating personal saved decision preview now.',
+        'Choose the funding source for this saved decision preview.',
         adminSafetyLine(),
       ].join('\n'),
+      renderPredictionFundingKeyboard(match.matchId, config),
     );
-    await runPersonalOperatorDecision(config, chat.id, callback.from, tournament, match.matchId, 'operator_decide');
     return;
   }
 
@@ -2052,6 +2053,10 @@ async function handleTelegramCallback(config: AgentConfig, callback: TelegramCal
       return;
     }
     if (parsedAction.action === 'decision' || parsedAction.action === 'simulation') {
+      if (parsedAction.action === 'decision') {
+        await sendPredictionFundingChoice(config, chat.id, tournament, parsedAction.matchId);
+        return;
+      }
       await runPersonalOperatorDecision(
         config,
         chat.id,
@@ -2063,6 +2068,29 @@ async function handleTelegramCallback(config: AgentConfig, callback: TelegramCal
       return;
     }
     await runPersonalStrategyAnalysis(config, chat.id, callback.from, tournament, parsedAction.matchId, parsedAction.action);
+    return;
+  }
+
+  if (data.startsWith('sp:personal_funding:')) {
+    const tournament = await resolveCallbackTournament(config, chat.id, callback.from);
+    if (!tournament) {
+      await sendTelegramMessage(config, chat.id, 'Choose a tournament first. Use /menu to start again.');
+      return;
+    }
+    const parsedFunding = parsePersonalFundingCallback(data);
+    if (!parsedFunding) {
+      await sendTelegramMessage(config, chat.id, 'Prediction funding choice not recognized. Use /menu to start again.');
+      return;
+    }
+    await runPersonalOperatorDecision(
+      config,
+      chat.id,
+      callback.from,
+      tournament,
+      parsedFunding.matchId,
+      'operator_decide',
+      parsedFunding.fundingSource,
+    );
     return;
   }
 
@@ -3360,6 +3388,38 @@ function renderPersonalEligibleMatchKeyboard(
   };
 }
 
+async function sendPredictionFundingChoice(
+  config: AgentConfig,
+  chatId: number | string,
+  tournament: TournamentProfileOption,
+  matchId: string,
+): Promise<void> {
+  await sendTelegramMessage(
+    config,
+    chatId,
+    [
+      `Choose funding for match #${matchId} in ${tournament.name}.`,
+      '',
+      'This only generates a saved DecisionReport. Submission still requires Approve Plan and all wallet safety guards.',
+      adminSafetyLine(),
+    ].join('\n'),
+    renderPredictionFundingKeyboard(matchId, config),
+  );
+}
+
+function renderPredictionFundingKeyboard(matchId: string, config: AgentConfig): TelegramInlineKeyboard {
+  const rows: TelegramInlineKeyboard['inline_keyboard'] = [
+    [{ text: 'Predict with VARA', callback_data: `sp:personal_funding:${matchId}:cash` }],
+  ];
+  if (config.programs.freebetLedger) {
+    rows.push([{ text: 'Predict with Freebet', callback_data: `sp:personal_funding:${matchId}:freebet` }]);
+  }
+  rows.push([{ text: 'Freebet Status', callback_data: 'sp:freebet_status' }]);
+  rows.push([{ text: 'Back to Predict', callback_data: 'sp:section:predict' }]);
+  rows.push([{ text: 'Cancel', callback_data: 'sp:cancel' }]);
+  return { inline_keyboard: rows };
+}
+
 function personalMatchActionPrefix(action: PersonalMatchAction): string {
   if (action === 'simulation') return 'sp:personal_sim:';
   if (action === 'timing') return 'sp:personal_timing:';
@@ -3405,6 +3465,16 @@ function parsePersonalMatchActionCallback(data: string): { action: PersonalMatch
   return null;
 }
 
+function parsePersonalFundingCallback(data: string): { matchId: string; fundingSource: FundingSource } | null {
+  const [, matchId, fundingSource] = data.match(/^sp:personal_funding:([^:]+):(cash|freebet)$/) ?? [];
+  if (!matchId || !isFundingSource(fundingSource)) return null;
+  return { matchId, fundingSource };
+}
+
+function isFundingSource(value: unknown): value is FundingSource {
+  return value === 'cash' || value === 'freebet';
+}
+
 async function runPersonalOperatorDecision(
   config: AgentConfig,
   chatId: number | string,
@@ -3412,6 +3482,7 @@ async function runPersonalOperatorDecision(
   tournament: TournamentProfileOption,
   matchId: string,
   command: 'operator_decide' | 'operator_simulate',
+  fundingSource?: FundingSource,
 ): Promise<void> {
   const user = telegramUserContext(from);
   const permission = new TelegramPermissionModel(config).canRun(command, user);
@@ -3435,7 +3506,10 @@ async function runPersonalOperatorDecision(
     config,
     memory,
     user,
-    text: command === 'operator_simulate' ? `/operator_simulate match:${matchId}` : `/operator_decide match:${matchId}`,
+    text:
+      command === 'operator_simulate'
+        ? `/operator_simulate match:${matchId}`
+        : `/operator_decide match:${matchId} funding:${fundingSource ?? 'cash'}`,
     command,
     selectedTournamentId: tournament.tournamentId,
   });
