@@ -144,7 +144,7 @@ function chooseIntent(normalized: string, slots: TelegramNaturalLanguageSlots): 
     candidates.push({ intent: 'help', confidence: 0.94 });
   }
 
-  if (matches(normalized, ['freebet', 'free bet', 'incentive'])) {
+  if (matches(normalized, ['freebet', 'free bet', 'incentive']) && !isDecisionPreviewLanguage(normalized)) {
     candidates.push({ intent: 'freebet_status', confidence: 0.9 });
   }
 
@@ -420,7 +420,7 @@ function chooseIntent(normalized: string, slots: TelegramNaturalLanguageSlots): 
   }
 
   if (
-    matches(normalized, ['analyze', 'analyse', 'predict', 'prediction', 'preview', 'prepare', 'recommend']) &&
+    isDecisionPreviewLanguage(normalized) &&
     !matches(normalized, [
         'price',
       'cost',
@@ -759,6 +759,10 @@ function extractFundingSource(normalized: string): FundingSource | null {
   if (/\b(freebet|free bet|incentive)\b/.test(normalized)) return 'freebet';
   if (/\b(cash|vara|own funds)\b/.test(normalized)) return 'cash';
   return null;
+}
+
+function isDecisionPreviewLanguage(normalized: string): boolean {
+  return matches(normalized, ['analyze', 'analyse', 'predict', 'prediction', 'preview', 'prepare', 'recommend']);
 }
 
 function extractPublicWallet(raw: string): string | null {
