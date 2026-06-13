@@ -70,24 +70,28 @@ function readSnapshot(path: string): MemorySnapshot {
 export class MemoryStore {
   private readonly path: string;
   private readonly sqlite: SqliteMemoryStore;
+  private readonly jsonMirrorEnabled: boolean;
   private snapshot: MemorySnapshot;
 
   constructor(path = DEFAULT_MEMORY_PATH, sqlitePath = process.env.SMARTPREDICTOR_SQLITE_PATH) {
     this.path = resolve(path);
-    this.snapshot = readSnapshot(this.path);
     this.sqlite = new SqliteMemoryStore(sqlitePath);
-    this.sqlite.importSnapshot(this.snapshot);
-    this.snapshot = {
-      predictions: this.sqlite.listPredictions(),
-      reports: this.sqlite.listDecisions(),
-      transactionPlans: this.sqlite.listTransactionPlans(),
-      transactionResults: this.sqlite.listTransactionResults(),
-      outcomeEvaluations: this.sqlite.listOutcomeEvaluations(),
-      parserTelemetry: this.sqlite.listParserTelemetry(),
-      telegramPreferences: this.sqlite.listTelegramPreferences(),
-      runtimePolicies: this.sqlite.listRuntimePolicies(),
-      telegramPredictionAlerts: this.sqlite.listTelegramPredictionAlerts(),
-    };
+    this.jsonMirrorEnabled = shouldWriteJsonMirror(this.sqlite.getPath());
+    this.snapshot = this.jsonMirrorEnabled ? readSnapshot(this.path) : emptySnapshot();
+    if (this.jsonMirrorEnabled) this.sqlite.importSnapshot(this.snapshot);
+    this.snapshot = this.jsonMirrorEnabled
+      ? {
+          predictions: this.sqlite.listPredictions(),
+          reports: this.sqlite.listDecisions(),
+          transactionPlans: this.sqlite.listTransactionPlans(),
+          transactionResults: this.sqlite.listTransactionResults(),
+          outcomeEvaluations: this.sqlite.listOutcomeEvaluations(),
+          parserTelemetry: this.sqlite.listParserTelemetry(),
+          telegramPreferences: this.sqlite.listTelegramPreferences(),
+          runtimePolicies: this.sqlite.listRuntimePolicies(),
+          telegramPredictionAlerts: this.sqlite.listTelegramPredictionAlerts(),
+        }
+      : emptySnapshot();
   }
 
   saveDecision(report: DecisionReport): void {
@@ -266,8 +270,17 @@ export class MemoryStore {
   }
 
   private flush(): void {
+    if (!this.jsonMirrorEnabled) return;
     mkdirSync(dirname(this.path), { recursive: true });
     writeFileSync(`${this.path}.tmp`, `${jsonStringify(this.snapshot, 2)}\n`);
     renameSync(`${this.path}.tmp`, this.path);
   }
+}
+
+function shouldWriteJsonMirror(sqlitePath: string): boolean {
+  if (process.env.SMARTPREDICTOR_DISABLE_JSON_MEMORY_MIRROR === 'true') return false;
+  if (process.env.SMARTPREDICTOR_DISABLE_JSON_MEMORY_MIRROR === 'false') return true;
+
+  const runningOnRender = Boolean(process.env.RENDER || process.env.RENDER_SERVICE_ID || process.env.RENDER_SERVICE_NAME);
+  return !(runningOnRender && sqlitePath.startsWith('/var/data/'));
 }
