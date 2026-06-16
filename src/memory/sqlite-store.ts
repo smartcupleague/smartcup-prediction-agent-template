@@ -509,6 +509,18 @@ export class SqliteMemoryStore {
           WHERE id != ?
             AND kind IN ('PlaceBet', 'SubmitPodiumPick')
             AND status NOT IN ('blocked', 'failed', 'cancelled')
+            AND NOT EXISTS (
+              SELECT 1
+              FROM transaction_results
+              WHERE transaction_results.plan_id = transaction_plans.id
+                AND transaction_results.status IN (
+                  'not_submitted',
+                  'submission_blocked',
+                  'submitted',
+                  'confirmed',
+                  'failed'
+                )
+            )
           ORDER BY created_at ASC, id ASC
         `,
       )

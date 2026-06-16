@@ -1382,6 +1382,8 @@ async function main(): Promise<void> {
       confirmationResult = advisor.confirmationResult(plan, transactionResult, report);
       memory.saveTransactionResult(confirmationResult);
     }
+    updatePlanStatusFromExecutionResult(plan, transactionResult, confirmationResult);
+    memory.saveTransactionPlan(plan);
 
     if ((args.format ?? 'json') === 'summary') {
       console.log(`Stored transaction plan: ${plan.id}`);
@@ -3185,6 +3187,23 @@ function blockPlanWithSafetyCheck(
   plan.safetyChecks[checkIndex] = check;
   plan.status = 'blocked';
   plan.requiresApproval = true;
+  plan.updatedAt = new Date().toISOString();
+}
+
+function updatePlanStatusFromExecutionResult(
+  plan: StoredTransactionPlan,
+  result: StoredTransactionResult,
+  confirmation: StoredTransactionResult | null,
+): void {
+  if (confirmation?.status === 'confirmed') {
+    plan.status = 'confirmed';
+  } else if (result.status === 'submitted') {
+    plan.status = 'submitted';
+  } else if (result.status === 'failed') {
+    plan.status = 'failed';
+  } else if (result.status === 'submission_blocked' && plan.status !== 'blocked') {
+    plan.status = 'blocked';
+  }
   plan.updatedAt = new Date().toISOString();
 }
 

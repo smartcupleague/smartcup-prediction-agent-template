@@ -332,6 +332,9 @@ function cutoffReason(message: string): string {
 }
 
 function balanceExposureReason(message: string): string {
+  if (/minimum stake|below.*stake|stake.*below/i.test(message)) {
+    return 'blocked because the planned stake is below the configured SmartCup minimum stake.';
+  }
   if (/balance|max-stake|exposure|spending/i.test(message)) {
     return 'blocked because balance, stake cap, or tournament exposure safety could not be proven.';
   }
