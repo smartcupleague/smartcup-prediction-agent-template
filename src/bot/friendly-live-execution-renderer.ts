@@ -161,11 +161,9 @@ function renderSubmission(plan: StoredTransactionPlan, result: StoredTransaction
 
 function friendlyBlockedSubmissionReason(plan: StoredTransactionPlan, result: StoredTransactionResult): string {
   const failed = plan.safetyChecks.filter((check) => check.status === 'fail');
-  if (failed.some((check) => check.name === 'balance_and_exposure')) {
-    return [
-      'Balance/exposure safety could not be proven.',
-      'The agent must prove wallet balance, max-stake cap, tournament exposure, and current wallet bets before sending funds.',
-    ].join(' ');
+  const balanceExposureFailure = failed.find((check) => check.name === 'balance_and_exposure');
+  if (balanceExposureFailure) {
+    return balanceExposureBlockedSubmissionReason(balanceExposureFailure);
   }
   const duplicateFailure = failed.find((check) => check.name === 'duplicate_prediction');
   if (duplicateFailure) {
@@ -183,6 +181,36 @@ function friendlyBlockedSubmissionReason(plan: StoredTransactionPlan, result: St
     return 'Operator policy blocked live execution.';
   }
   return friendlyResultReason(result);
+}
+
+function balanceExposureBlockedSubmissionReason(check: TransactionSafetyCheck): string {
+  const reason = balanceExposureReason(check.message);
+  const detail = balanceExposureDetail(check);
+  const detailError = check.details && typeof check.details.error === 'string'
+    ? ` Detail: ${shortDiagnostic(check.details.error)}`
+    : '';
+  return [
+    'Balance/exposure safety could not be proven.',
+    reason,
+    detail,
+    'The agent must prove wallet balance, max-stake cap, tournament exposure, and current wallet bets before sending funds.',
+    detailError,
+  ].filter(Boolean).join(' ').trim();
+}
+
+function balanceExposureDetail(check: TransactionSafetyCheck): string {
+  const details = check.details ?? {};
+  const pairs: string[] = [];
+  const addPlanck = (label: string, key: string) => {
+    const value = details[key];
+    if (typeof value === 'string' && /^\d+$/.test(value)) pairs.push(`${label}: ${formatFriendlyPlanckAmount(value, null)}`);
+  };
+  addPlanck('Planned value', 'valuePlanck');
+  addPlanck('Wallet free balance', 'freePlanck');
+  addPlanck('Max stake', 'maxStakePlanck');
+  addPlanck('Projected exposure', 'projectedExposurePlanck');
+  addPlanck('Max exposure', 'maxTournamentExposurePlanck');
+  return pairs.length > 0 ? `Proof snapshot: ${pairs.join('; ')}.` : '';
 }
 
 function renderConfirmation(result: StoredTransactionResult | null): string[] {
@@ -335,9 +363,10 @@ function balanceExposureReason(message: string): string {
   if (/minimum stake|below.*stake|stake.*below/i.test(message)) {
     return 'blocked because the planned stake is below the configured SmartCup minimum stake.';
   }
-  if (/balance|max-stake|exposure|spending/i.test(message)) {
-    return 'blocked because balance, stake cap, or tournament exposure safety could not be proven.';
-  }
+  if (/exceeds configured max-stake/i.test(message)) return 'blocked because the planned stake exceeds the configured max-stake cap.';
+  if (/projected tournament exposure exceeds/i.test(message)) return 'blocked because the projected tournament exposure exceeds the configured max-exposure cap.';
+  if (/wallet free balance is lower/i.test(message)) return 'blocked because wallet free balance is lower than the planned attached value.';
+  if (/guard failed|spending safety could not be proven/i.test(message)) return 'blocked because the balance/exposure proof query failed before a specific cap or balance comparison could be trusted.';
   return sanitizedCheckMessage(message);
 }
 
